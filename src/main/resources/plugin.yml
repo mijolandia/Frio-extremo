@@ -1,0 +1,18 @@
+name: VentiscaEterna
+version: '1.0.0'
+main: com.antartida.ventisca.VentiscaEterna
+api-version: '1.21'
+author: Antartida
+description: Evento global de glaciacion (Antartida v13.8) reescrito en Java nativo para Paper.
+commands:
+  antartida:
+    description: Abre el panel de la Ventisca Eterna (usuario o administracion segun el permiso).
+    usage: /antartida [admin]
+    permission-message: No tienes permiso para usar este comando.
+permissions:
+  ventiscaeterna.admin:
+    description: Permite controlar y administrar la Ventisca Eterna (GUI de administracion).
+    default: op
+  ventiscaeterna.player:
+    description: Permite abrir el panel de estadisticas de la Ventisca Eterna.
+    default: true
