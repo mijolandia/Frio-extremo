@@ -1,0 +1,17 @@
+# Configuracion de VentiscaEterna.
+# La mayoria de los valores estructurales (radio de la jaula, umbrales de
+# fase, tope de mobs por fase) estan fijados en el codigo para garantizar
+# el rendimiento; esta seccion cubre lo que un admin puede querer ajustar
+# sin recompilar.
+
+debug: false
+
+queue:
+  spawn-exclusion-radius: 80.0
+  base-cooldown-ticks: 25
+  cooldown-per-player-ticks: 5
+  max-cooldown-ticks: 180
+
+scoring:
+  points-per-minute: 200
+  victory-bonus: 850
