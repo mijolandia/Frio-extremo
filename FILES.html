@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📁 Todos los Archivos - Portafolio</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, sans-serif; 
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #333;
+            line-height: 1.6;
+        }
+        .navbar {
+            background: rgba(26, 26, 46, 0.95);
+            color: white;
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .container { max-width: 1000px; margin: 0 auto; padding: 0 20px; }
+        .navbar a {
+            color: #50e3c2;
+            text-decoration: none;
+            margin-right: 2rem;
+            font-weight: bold;
+        }
+        .navbar a:hover { color: #fff; }
+
+        .content {
+            background: white;
+            margin: 2rem auto;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 { color: #667eea; margin-bottom: 1rem; }
+        h2 { color: #764ba2; margin-top: 2rem; margin-bottom: 1rem; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem; }
+
+        .file-section {
+            margin: 2rem 0;
+        }
+
+        .file-item {
+            background: #f9f9f9;
+            padding: 1rem;
+            margin: 0.5rem 0;
+            border-left: 4px solid #667eea;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .file-name {
+            font-weight: bold;
+            color: #667eea;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+        }
+
+        .file-desc {
+            color: #555;
+            font-size: 0.9rem;
+            margin-top: 0.3rem;
+            flex: 1;
+            margin-left: 1rem;
+        }
+
+        .file-type {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 5px;
+        }
+
+        .footer {
+            background: #1a1a2e;
+            color: white;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+        }
+
+        .btn-back {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            margin-bottom: 2rem;
+        }
+
+        .btn-back:hover {
+            background: #764ba2;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .summary-card {
+            background: #f0f0f0;
+            padding: 1rem;
+            border-radius: 5px;
+            text-align: center;
+            border-left: 3px solid #667eea;
+        }
+
+        .summary-card strong { color: #667eea; font-size: 1.5rem; display: block; }
+        .summary-card small { color: #999; }
+
+        @media (max-width: 768px) {
+            .file-item { flex-direction: column; }
+            .file-desc { margin-left: 0; margin-top: 0.5rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="container">
+            <a href="index.html">← Volver</a>
+            <span style="color: #50e3c2; font-size: 1.2rem;">📦 Portafolio de Scripts</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="content">
+            <a href="index.html" class="btn-back">← Volver a inicio</a>
+
+            <h1>📁 Todos los Archivos</h1>
+            <p style="font-size: 1.1rem; color: #666; margin-bottom: 2rem;">Catálogo completo de archivos incluidos en este portafolio</p>
+
+            <div class="warning">
+                <strong>⚠️ DISCLAIMER:</strong> Todos los archivos se proporcionan "TAL COMO ESTÁN" sin garantía de funcionamiento. 
+                <strong>Tú eres responsable</strong> del uso. Prueba en un servidor de prueba antes de usar en producción.
+            </div>
+
+            <!-- RESUMEN -->
+            <h2>📊 Resumen</h2>
+            <div class="summary">
+                <div class="summary-card">
+                    <strong>20+</strong>
+                    <small>Scripts Skript (.sk)</small>
+                </div>
+                <div class="summary-card">
+                    <strong>11+</strong>
+                    <small>Configs YAML</small>
+                </div>
+                <div class="summary-card">
+                    <strong>1</strong>
+                    <small>Base Datos SQLite</small>
+                </div>
+                <div class="summary-card">
+                    <strong>6+</strong>
+                    <small>Documentos HTML/MD</small>
+                </div>
+            </div>
+
+            <!-- SCRIPTS SKRIPT -->
+            <h2>🔧 Scripts Skript (.sk)</h2>
+            <div class="file-section">
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">tienda.sk</div>
+                        <div class="file-desc">Sistema de tienda dinámico con 5 categorías (Suministros, Utilidades, Encantos, Nether, End). Compra/venta de ítems, TOP 3 gastadores, reinicio cada 5 horas.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">Bolsa.sk</div>
+                        <div class="file-desc">Wall Street de trueque monetario. Sistema de Bolsa de Valores con devaluación anti-inflación. Intercambia dinero y gestiona corporaciones.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">rtp.sk</div>
+                        <div class="file-desc">Teletransportación aleatoria a 3 mundos (Overworld, Mundo Antiguo, Nether). Sistema de precios dinámicos con demanda de mercado.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">Spawn.sk</div>
+                        <div class="file-desc">Gestión del punto de aparición. Comandos /setspawn para guardar y /spawn para teletransportarse al spawn configurado.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">pocion.sk</div>
+                        <div class="file-desc">Alquimia elite con 19 recetas de pociones en cadena. Requiere trofeos elite, minerales avanzados y calderos con fuego.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">mobs.sk</div>
+                        <div class="file-desc">Sistema de mobs elite T0-T3 con eventos especiales. Ruptura del Nether, invasión de criaturas, BossBar de colores y trofeos de valor.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">calor-extremo.sk</div>
+                        <div class="file-desc">Ilusión infernal en desiertos. Tormenta de arena, daño ambiental, gafas especiales y regreso seguro. Mecánica climática hardcore.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">Avisos.sk</div>
+                        <div class="file-desc">Alertas automáticas de pre-generación de terreno (Chunky). Notifica lag severo y recordatorios cada 10 minutos.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">reparador.sk</div>
+                        <div class="file-desc">Sistema de reparación de herramientas y armaduras integrado con economía. Protege tus ítems valiosos.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">mundos.sk</div>
+                        <div class="file-desc">Gestor informativo de mundos. Detalles de Overworld (500 bloques), Mundo Antiguo (5000 bloques) y Nether. Información de límites y PvP.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">limpieza.sk</div>
+                        <div class="file-desc">Purga inteligente y automática de lag. Elimina items caídos, entidades obsoletas. Panel de control y limpieza programada.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">ayuda.sk</div>
+                        <div class="file-desc">Menú central de navegación. Acceso a Mercado, Mundos, Búsquedas, Protecciones, Redes Sociales y Discord.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">ah.sk</div>
+                        <div class="file-desc">Sistema de Subasta. Intercambio de items entre jugadores.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">motivarte-no-es-malo.sk</div>
+                        <div class="file-desc">Sistema de motivación y eventos especiales para jugadores.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">palo-staff.sk</div>
+                        <div class="file-desc">Herramientas para staff del servidor. Gestión y moderación.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">arg.sk</div>
+                        <div class="file-desc">Sistema de argumentos avanzados para scripts.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">grans.sk</div>
+                        <div class="file-desc">Sistema de granjas automatizadas.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">iron.sk</div>
+                        <div class="file-desc">Generador automático de hierro con alchemy drops.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">sol.sk</div>
+                        <div class="file-desc">Sistema de energía solar y renovables.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SKRIPT</span>
+                        <div class="file-name">Tienda-poderosa.sk</div>
+                        <div class="file-desc">Tienda alternativa con Protection Stones. Sistema de bordes forestal.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CONFIGURACIONES -->
+            <h2>⚙️ Archivos de Configuración (YAML)</h2>
+            <div class="file-section">
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">CONFIG</span>
+                        <div class="file-name">Signs.yml / signs.yml</div>
+                        <div class="file-desc">Configuración de señales del servidor.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">CONFIG</span>
+                        <div class="file-name">blockOwnerShips.yml</div>
+                        <div class="file-desc">Sistema de propiedad de bloques. Protección de builds.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">CONFIG</span>
+                        <div class="file-name">boostedItems.yml</div>
+                        <div class="file-desc">Items mejorados con boosts especiales.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">CONFIG</span>
+                        <div class="file-name">generalConfig.yml</div>
+                        <div class="file-desc">Configuración general del servidor.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">CONFIG</span>
+                        <div class="file-name">placeholders.yml</div>
+                        <div class="file-desc">Placeholders y variables del servidor.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">CONFIG</span>
+                        <div class="file-name">restrictedAreas.yml</div>
+                        <div class="file-desc">Áreas restringidas del servidor.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">CONFIG</span>
+                        <div class="file-name">restrictedBlocks.yml</div>
+                        <div class="file-desc">Bloques restringidos.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">CONFIG</span>
+                        <div class="file-name">schedule.yml</div>
+                        <div class="file-desc">Horarios de eventos programados.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">CONFIG</span>
+                        <div class="file-name">shopItems.yml</div>
+                        <div class="file-desc">Configuración de items de tienda.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">CONFIG</span>
+                        <div class="file-name">titleConfig.yml</div>
+                        <div class="file-desc">Configuración de títulos y subtítulos.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BASE DE DATOS -->
+            <h2>🗄️ Base de Datos</h2>
+            <div class="file-section">
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">DATABASE</span>
+                        <div class="file-name">jobs.sqlite.db</div>
+                        <div class="file-desc">Base de datos SQLite con sistema de trabajos. Almacena datos de empleos, salarios y estadísticas de jugadores.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- JAVA/MAVEN -->
+            <h2>☕ Proyecto Java</h2>
+            <div class="file-section">
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">BUILD</span>
+                        <div class="file-name">pom.xml</div>
+                        <div class="file-desc">Archivo de construcción Maven. Configuración de dependencias y plugins del proyecto Java.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SOURCE</span>
+                        <div class="file-name">src/</div>
+                        <div class="file-desc">Código fuente Java del servidor. Clases personalizadas y lógica backend.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">BUILD</span>
+                        <div class="file-name">target/</div>
+                        <div class="file-desc">Directorio de compilación Maven. Archivos compilados y JAR generados.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DOCUMENTACIÓN -->
+            <h2>📚 Documentación</h2>
+            <div class="file-section">
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">HTML</span>
+                        <div class="file-name">index.html</div>
+                        <div class="file-desc">Página principal del portafolio. Inicio, descripción general y acceso a scripts.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">HTML</span>
+                        <div class="file-name">INSTALL.html</div>
+                        <div class="file-desc">Guía completa de instalación paso a paso con requisitos y solución de problemas.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">HTML</span>
+                        <div class="file-name">NATURELAND.html</div>
+                        <div class="file-desc">Guía de personalización: cómo reemplazar referencias de servidor en los scripts.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">HTML</span>
+                        <div class="file-name">FILES.html</div>
+                        <div class="file-desc">Este archivo. Catálogo completo de todos los archivos incluidos.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">MARKDOWN</span>
+                        <div class="file-name">README.md</div>
+                        <div class="file-desc">Documentación general en Markdown.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">MARKDOWN</span>
+                        <div class="file-name">GEMINI.md</div>
+                        <div class="file-desc">Documentación sobre cómo se creó el proyecto con Google Gemini.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">MARKDOWN</span>
+                        <div class="file-name">NATURELAND-INFO.md</div>
+                        <div class="file-desc">Guía en Markdown sobre personalización de referencias del servidor.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">MARKDOWN</span>
+                        <div class="file-name">LICENSE.md</div>
+                        <div class="file-desc">Licencia del proyecto.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WEB -->
+            <h2>🌐 Archivos Web</h2>
+            <div class="file-section">
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">CSS</span>
+                        <div class="file-name">style.css</div>
+                        <div class="file-desc">Estilos CSS para todas las páginas HTML. Diseño responsivo y gradientes.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">JAVASCRIPT</span>
+                        <div class="file-name">script.js</div>
+                        <div class="file-desc">JavaScript vanilla. Carga dinámicamente los scripts desde data.json y renderiza la galería.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">JSON</span>
+                        <div class="file-name">data.json</div>
+                        <div class="file-desc">Metadata de los 12 scripts. Nombres, descripciones, categorías y archivos.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">SVG</span>
+                        <div class="file-name">favicon.svg</div>
+                        <div class="file-desc">Icono de portafolio. Copo de nieve con gradiente morado.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">CONFIG</span>
+                        <div class="file-name">.nojekyll</div>
+                        <div class="file-desc">Configuración de GitHub Pages. Desactiva procesamiento Jekyll para servir archivos estáticos.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- OTROS -->
+            <h2>📄 Otros</h2>
+            <div class="file-section">
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">LOG</span>
+                        <div class="file-name">log.txt.lck</div>
+                        <div class="file-desc">Archivo de bloqueo de logs del servidor.</div>
+                    </div>
+                </div>
+
+                <div class="file-item">
+                    <div>
+                        <span class="file-type">GIT</span>
+                        <div class="file-name">.git / .gitignore</div>
+                        <div class="file-desc">Repositorio Git y configuración de ignorados.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- DESCARGA -->
+            <h2>📥 ¿Cómo descargar?</h2>
+            <div class="warning">
+                <strong>Opción 1 (Recomendado):</strong> Clona el repositorio completo:
+                <code style="display: block; margin-top: 0.5rem; background: #222; color: #50e3c2; padding: 0.5rem; border-radius: 3px;">
+                    git clone https://github.com/mijolandia/Frio-extremo.git
+                </code>
+                <strong style="display: block; margin-top: 1rem;">Opción 2:</strong> Descarga ZIP desde GitHub
+                <strong style="display: block; margin-top: 1rem;">Opción 3:</strong> Descarga archivos individuales desde la web
+            </div>
+
+            <div style="text-align: center; margin-top: 3rem;">
+                <a href="INSTALL.html" class="btn-back" style="background: #28a745;">Ir a Instalación →</a>
+                <a href="index.html" class="btn-back" style="background: #667eea; margin-left: 1rem;">Volver a inicio</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p><strong>👨‍💻 Desarrollador:</strong> Minecraft_323 (14 años) | <strong>🤖 Creado con:</strong> Google Gemini</p>
+        <p style="margin-top: 1rem; opacity: 0.8;">⚠️ Sin garantía. Úsalo bajo tu responsabilidad.</p>
+        <p style="margin-top: 1rem; opacity: 0.6;">Portafolio © 2024 - Todos los derechos reservados</p>
+    </div>
+</body>
+</html>
