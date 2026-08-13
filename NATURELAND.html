@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>⚙️ Personalizar - Frío Extremo</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, sans-serif; 
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #333;
+            line-height: 1.6;
+        }
+        .navbar {
+            background: rgba(26, 26, 46, 0.95);
+            color: white;
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .container { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+        .navbar a {
+            color: #50e3c2;
+            text-decoration: none;
+            margin-right: 2rem;
+            font-weight: bold;
+        }
+        .navbar a:hover { color: #fff; }
+
+        .content {
+            background: white;
+            margin: 2rem auto;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 { color: #667eea; margin-bottom: 1rem; }
+        h2 { color: #764ba2; margin-top: 2rem; margin-bottom: 1rem; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem; }
+        h3 { color: #667eea; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+
+        .step {
+            background: #f9f9f9;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border-left: 4px solid #667eea;
+            border-radius: 5px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 5px;
+        }
+
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 5px;
+        }
+
+        code {
+            background: #222;
+            color: #50e3c2;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        pre {
+            background: #222;
+            color: #50e3c2;
+            padding: 1rem;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+
+        .command {
+            background: #222;
+            color: #50e3c2;
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 0.8rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+        }
+
+        tr:hover {
+            background: #f5f5f5;
+        }
+
+        .footer {
+            background: #1a1a2e;
+            color: white;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+        }
+
+        .btn-back {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            margin-bottom: 2rem;
+        }
+
+        .btn-back:hover {
+            background: #764ba2;
+        }
+
+        .file-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .file-item {
+            background: #f0f0f0;
+            padding: 1rem;
+            border-radius: 5px;
+            border-left: 3px solid #667eea;
+        }
+
+        .file-item strong { color: #667eea; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="container">
+            <a href="index.html">← Volver</a>
+            <span style="color: #50e3c2; font-size: 1.2rem;">❄️ Frío Extremo</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="content">
+            <a href="index.html" class="btn-back">← Volver a inicio</a>
+
+            <h1>⚙️ Personalizar Frío Extremo</h1>
+            <p style="font-size: 1.1rem; color: #666; margin-bottom: 2rem;">Guía completa para reemplazar referencias de servidor y personalizar los scripts</p>
+
+            <!-- ¿QUÉ ES NATURELAND? -->
+            <h2>❓ ¿Qué es "Natureland"?</h2>
+            <div class="step">
+                <p><strong>"Natureland"</strong> es el nombre del servidor original donde se desarrollaron estos scripts.</p>
+                <p style="margin-top: 0.5rem;">Cuando descargas los archivos, verás referencias a "natureland" en:</p>
+                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
+                    <li>Comentarios de cabecera de archivos</li>
+                    <li>Variables del servidor (ej: <code>{natureland.spawn}</code>)</li>
+                    <li>Permisos (ej: <code>natureland.tienda.admin</code>)</li>
+                    <li>Mensajes de broadcast</li>
+                </ul>
+            </div>
+
+            <!-- REEMPLAZAR NATURELAND -->
+            <h2>🔄 Cómo Reemplazar "Natureland"</h2>
+
+            <h3>Método 1: En Editor de Texto (RECOMENDADO)</h3>
+            <div class="step">
+                <ol style="margin-left: 2rem; margin-top: 0.5rem;">
+                    <li>Abre un archivo <code>.sk</code> en tu editor (VS Code, Notepad++, Sublime Text)</li>
+                    <li>Presiona <code>Ctrl + H</code> (Buscar y Reemplazar)</li>
+                    <li>En "Buscar" escribe: <code>natureland</code></li>
+                    <li>En "Reemplazar" escribe: <code>miservidor</code> (o tu nombre)</li>
+                    <li>Haz clic en "Replace All"</li>
+                    <li>Repite para TODOS los archivos <code>.sk</code></li>
+                </ol>
+                <p style="margin-top: 1rem;"><strong>⚠️ Importante:</strong> El nombre debe ser:</p>
+                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
+                    <li><strong>Sin espacios</strong> (usa guiones si quieres: mi-servidor)</li>
+                    <li><strong>Minúsculas</strong> (los permisos en Minecraft son así)</li>
+                    <li><strong>Único</strong> (no uses nombres de otros servidores)</li>
+                </ul>
+            </div>
+
+            <h3>Método 2: Buscar y Reemplazar en Lote</h3>
+            <div class="step">
+                <p>Si tienes muchos archivos, usa un script bash:</p>
+                <div class="command">for file in *.sk; do
+  sed -i 's/natureland/miservidor/g' "$file"
+done</div>
+                <p style="margin-top: 1rem;">Esto reemplaza "natureland" en todos los <code>.sk</code> automáticamente.</p>
+            </div>
+
+            <!-- ARCHIVOS A CAMBIAR -->
+            <h2>📝 Archivos con "Natureland"</h2>
+            <div class="step">
+                <p>Estos archivos contienen referencias a "natureland":</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Archivo</th>
+                            <th>Líneas Aprox.</th>
+                            <th>Tipo de Referencia</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>tienda.sk</code></td>
+                            <td>15, 36</td>
+                            <td>Permisos, Broadcast</td>
+                        </tr>
+                        <tr>
+                            <td><code>Bolsa.sk</code></td>
+                            <td>20</td>
+                            <td>Permisos</td>
+                        </tr>
+                        <tr>
+                            <td><code>Spawn.sk</code></td>
+                            <td>6, 10, 11, 15</td>
+                            <td>Permisos, Variables</td>
+                        </tr>
+                        <tr>
+                            <td><code>Avisos.sk</code></td>
+                            <td>7</td>
+                            <td>Permisos</td>
+                        </tr>
+                        <tr>
+                            <td><code>limpieza.sk</code></td>
+                            <td>11-21</td>
+                            <td>Permisos</td>
+                        </tr>
+                        <tr>
+                            <td><code>mobs.sk</code></td>
+                            <td>2</td>
+                            <td>Comentario</td>
+                        </tr>
+                        <tr>
+                            <td><code>pocion.sk</code></td>
+                            <td>2</td>
+                            <td>Comentario</td>
+                        </tr>
+                        <tr>
+                            <td><code>Tienda-poderosa.sk</code></td>
+                            <td>2, 44</td>
+                            <td>Comentarios</td>
+                        </tr>
+                        <tr>
+                            <td><code>ah.sk</code></td>
+                            <td>2</td>
+                            <td>Comentario</td>
+                        </tr>
+                        <tr>
+                            <td><code>iron.sk</code></td>
+                            <td>2</td>
+                            <td>Comentario</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- EJEMPLOS DE REEMPLAZO -->
+            <h2>📋 Ejemplos de Reemplazo</h2>
+            <div class="step">
+                <h3>Antes (Original):</h3>
+                <pre>options:
+    prefix: &8[&a&lNATURE&e&lLAND&8]
+    perm_admin: natureland.tienda.admin
+    
+on join:
+    send "&8[&6NatureLand&8] ¡Bienvenido al servidor!"</pre>
+                
+                <h3>Después (Personalizado):</h3>
+                <pre>options:
+    prefix: &8[&a&lMI-SERVIDOR&8]
+    perm_admin: miservidor.tienda.admin
+    
+on join:
+    send "&8[&6Mi Servidor&8] ¡Bienvenido al servidor!"</pre>
+            </div>
+
+            <!-- PERMISOS A CONFIGURAR -->
+            <h2>🔐 Permisos Importantes a Personalizar</h2>
+            <div class="step">
+                <p>Estos son los permisos que MÁS importan (úsalos en LuckPerms):</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Permiso Original</th>
+                            <th>Reemplazar con</th>
+                            <th>Uso</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>natureland.tienda.*</code></td>
+                            <td><code>miservidor.tienda.*</code></td>
+                            <td>Sistema de tienda completo</td>
+                        </tr>
+                        <tr>
+                            <td><code>natureland.spawn</code></td>
+                            <td><code>miservidor.spawn</code></td>
+                            <td>Comando /spawn</td>
+                        </tr>
+                        <tr>
+                            <td><code>natureland.rtp.*</code></td>
+                            <td><code>miservidor.rtp.*</code></td>
+                            <td>Teleportación aleatoria</td>
+                        </tr>
+                        <tr>
+                            <td><code>natureland.bolsa.admin</code></td>
+                            <td><code>miservidor.bolsa.admin</code></td>
+                            <td>Admin de Bolsa de Valores</td>
+                        </tr>
+                        <tr>
+                            <td><code>natureland.limpiar.*</code></td>
+                            <td><code>miservidor.limpiar.*</code></td>
+                            <td>Sistema de limpieza</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- VERIFICACIÓN -->
+            <h2>✅ Verificar Cambios</h2>
+            <div class="step">
+                <p>Después de reemplazar, verifica:</p>
+                <ol style="margin-left: 2rem; margin-top: 0.5rem;">
+                    <li>Abre cada archivo <code>.sk</code> y usa <code>Ctrl + F</code></li>
+                    <li>Busca "natureland" (sin mayúsculas)</li>
+                    <li>NO debería encontrar coincidencias (excepto en comentarios si quieres)</li>
+                    <li>Busca tu nuevo nombre (ej: "miservidor")</li>
+                    <li>Deberías ver varias coincidencias</li>
+                </ol>
+            </div>
+
+            <div class="success">
+                <strong>✅ Si todo está reemplazado, continuamos con la instalación:</strong><br>
+                Sigue la <a href="INSTALL.html" style="color: #28a745; font-weight: bold;">guía de instalación</a>
+            </div>
+
+            <!-- NOMBRES RECOMENDADOS -->
+            <h2>💡 Nombres de Servidor Recomendados</h2>
+            <div class="step">
+                <p>Aquí hay ejemplos de buenos nombres (sin espacios, minúsculas):</p>
+                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
+                    <li><code>miservidor</code></li>
+                    <li><code>gameserver</code></li>
+                    <li><code>mi-server</code></li>
+                    <li><code>creative</code></li>
+                    <li><code>survival-pro</code></li>
+                    <li><code>pvp-arena</code></li>
+                    <li><code>skyblock-v1</code></li>
+                </ul>
+            </div>
+
+            <!-- ERRORES COMUNES -->
+            <h2>⚠️ Errores Comunes</h2>
+
+            <h3>❌ "Permiso no reconocido"</h3>
+            <div class="step">
+                <p><strong>Causa:</strong> Olvidaste reemplazar "natureland" en algún archivo.</p>
+                <p><strong>Solución:</strong> Busca <code>natureland</code> en todos los .sk y reemplaza.</p>
+            </div>
+
+            <h3>❌ "Comando no funciona"</h3>
+            <div class="step">
+                <p><strong>Causa:</strong> El comando tiene variables sin personalizar.</p>
+                <p><strong>Solución:</strong> Verifica que reemplazaste correctamente {natureland.variable}</p>
+            </div>
+
+            <h3>❌ "Script no se carga"</h3>
+            <div class="step">
+                <p><strong>Causa:</strong> Error de sintaxis por reemplazos incompletos.</p>
+                <p><strong>Solución:</strong> Revisa la consola del servidor para ver el error exacto.</p>
+            </div>
+
+            <div style="text-align: center; margin-top: 3rem;">
+                <a href="INSTALL.html" class="btn-back" style="background: #28a745;">Continuar a Instalación →</a>
+                <a href="index.html" class="btn-back" style="background: #667eea; margin-left: 1rem;">Volver a inicio</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p><strong>👨‍💻 Desarrollador:</strong> Minecraft_323 (14 años) | <strong>🤖 Creado con:</strong> Google Gemini</p>
+        <p style="margin-top: 1rem; opacity: 0.8;">Frío Extremo © 2024 - Todos los derechos reservados</p>
+    </div>
+</body>
+</html>

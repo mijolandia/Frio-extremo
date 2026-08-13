@@ -24,11 +24,6 @@ body { font-family: 'Segoe UI', Tahoma, sans-serif; background: #f5f5f5; }
 .about-card h3 { color: #667eea; margin-bottom: 1rem; font-size: 1.2rem; }
 .about-card p { color: #555; line-height: 1.6; }
 
-.faq-section { padding: 60px 20px; background: white; border-top: 3px solid #667eea; }
-.faq-section h3 { color: #667eea; font-size: 1.8rem; margin-bottom: 1rem; }
-.faq-section p { color: #555; line-height: 1.7; margin-bottom: 1rem; }
-.faq-section pre { font-size: 0.9rem; line-height: 1.5; }
-
 @media (max-width: 768px) { 
   .scripts-grid { grid-template-columns: 1fr; } 
   .hero h1 { font-size: 2rem; }

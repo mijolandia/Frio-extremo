@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📖 Cómo Instalar - Frío Extremo</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, sans-serif; 
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #333;
+            line-height: 1.6;
+        }
+        .navbar {
+            background: rgba(26, 26, 46, 0.95);
+            color: white;
+            padding: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .container { max-width: 900px; margin: 0 auto; padding: 0 20px; }
+        .navbar a {
+            color: #50e3c2;
+            text-decoration: none;
+            margin-right: 2rem;
+            font-weight: bold;
+        }
+        .navbar a:hover { color: #fff; }
+
+        .content {
+            background: white;
+            margin: 2rem auto;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        h1 { color: #667eea; margin-bottom: 1rem; }
+        h2 { color: #764ba2; margin-top: 2rem; margin-bottom: 1rem; border-bottom: 2px solid #667eea; padding-bottom: 0.5rem; }
+        h3 { color: #667eea; margin-top: 1.5rem; margin-bottom: 0.5rem; }
+
+        .step {
+            background: #f9f9f9;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border-left: 4px solid #667eea;
+            border-radius: 5px;
+        }
+
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 5px;
+        }
+
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 1rem;
+            margin: 1rem 0;
+            border-radius: 5px;
+        }
+
+        code {
+            background: #222;
+            color: #50e3c2;
+            padding: 0.2rem 0.5rem;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+
+        pre {
+            background: #222;
+            color: #50e3c2;
+            padding: 1rem;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-size: 0.9rem;
+        }
+
+        .command {
+            background: #222;
+            color: #50e3c2;
+            padding: 1rem;
+            border-radius: 5px;
+            margin: 1rem 0;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+        }
+
+        .permission-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            background: white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .permission-table th, .permission-table td {
+            padding: 0.8rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .permission-table th {
+            background: #667eea;
+            color: white;
+            font-weight: bold;
+        }
+
+        .permission-table tr:hover {
+            background: #f5f5f5;
+        }
+
+        .footer {
+            background: #1a1a2e;
+            color: white;
+            text-align: center;
+            padding: 2rem;
+            margin-top: 3rem;
+        }
+
+        .btn-back {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            text-decoration: none;
+            margin-bottom: 2rem;
+        }
+
+        .btn-back:hover {
+            background: #764ba2;
+        }
+
+        .scripts-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .script-item {
+            background: #f0f0f0;
+            padding: 1rem;
+            border-radius: 5px;
+            border-left: 3px solid #667eea;
+        }
+
+        .script-item strong { color: #667eea; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <div class="container">
+            <a href="index.html">← Volver</a>
+            <span style="color: #50e3c2; font-size: 1.2rem;">❄️ Frío Extremo</span>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="content">
+            <a href="index.html" class="btn-back">← Volver a inicio</a>
+
+            <h1>📖 Guía de Instalación - Frío Extremo</h1>
+            <p style="font-size: 1.1rem; color: #666; margin-bottom: 2rem;">Pasos completos para instalar todos los scripts en tu servidor PaperMC 1.21.11</p>
+
+            <!-- REQUISITOS -->
+            <h2>✅ Requisitos Previos</h2>
+            <div class="step">
+                <h3>Tu servidor debe tener:</h3>
+                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
+                    <li><strong>PaperMC 1.21.11</strong> (versión del servidor)</li>
+                    <li><strong>Skript 2.15.4+</strong> (plugin Skript actualizado)</li>
+                    <li><strong>SkBee 3.25+</strong> (extensión de Skript)</li>
+                    <li><strong>Vault</strong> (para economía)</li>
+                    <li><strong>LuckPerms</strong> (para gestionar permisos - RECOMENDADO)</li>
+                </ul>
+            </div>
+
+            <div class="warning">
+                <strong>⚠️ IMPORTANTE:</strong> Todos los scripts utilizan el nombre <code>[NOMBRE_SERVIDOR]</code> como placeholder.
+                Debes reemplazarlo con el nombre de tu servidor ANTES de instalar.
+            </div>
+
+            <!-- PASO 1 -->
+            <h2>Paso 1: Descargar los Scripts</h2>
+            <div class="step">
+                <p>Descarga todos los archivos <code>.sk</code> desde GitHub:</p>
+                <p style="margin-top: 1rem;"><strong>URL del repositorio:</strong></p>
+                <div class="command">https://github.com/mijolandia/Frio-extremo</div>
+                <p style="margin-top: 1rem;">O descargalos uno por uno desde la web.</p>
+            </div>
+
+            <!-- PASO 2 -->
+            <h2>Paso 2: Preparar los Scripts</h2>
+            <div class="step">
+                <h3>Antes de copiar al servidor:</h3>
+                <ol style="margin-left: 2rem; margin-top: 0.5rem;">
+                    <li>Abre cada archivo <code>.sk</code> en un editor (VS Code, Notepad++, etc)</li>
+                    <li>Presiona <code>Ctrl + H</code> (Buscar y Reemplazar)</li>
+                    <li>Busca: <code>natureland</code></li>
+                    <li>Reemplaza con: <code>[TU_SERVIDOR]</code> (sin espacios, minúsculas)</li>
+                    <li>Haz clic "Replace All"</li>
+                </ol>
+                <p style="margin-top: 1rem;"><strong>Ejemplo:</strong></p>
+                <pre>natureland.tienda.admin  →  miservidor.tienda.admin
+natureland.spawn         →  miservidor.spawn
+natureland.bolsa.admin   →  miservidor.bolsa.admin</pre>
+            </div>
+
+            <!-- PASO 3 -->
+            <h2>Paso 3: Copiar Scripts al Servidor</h2>
+            <div class="step">
+                <h3>Ubicación correcta:</h3>
+                <div class="command">plugins/Skript/scripts/</div>
+                <p style="margin-top: 1rem;">Copia TODOS los archivos <code>.sk</code> en esa carpeta.</p>
+                <p style="margin-top: 1rem;"><strong>Estructura esperada:</strong></p>
+                <pre>plugins/Skript/
+├── scripts/
+│   ├── tienda.sk
+│   ├── Bolsa.sk
+│   ├── rtp.sk
+│   ├── Spawn.sk
+│   ├── pocion.sk
+│   ├── mobs.sk
+│   ├── calor-extremo.sk
+│   ├── Avisos.sk
+│   ├── reparador.sk
+│   ├── limpieza.sk
+│   ├── mundos.sk
+│   └── ayuda.sk
+└── config.yml</pre>
+            </div>
+
+            <!-- PASO 4 -->
+            <h2>Paso 4: Recargar Skript en el Servidor</h2>
+            <div class="step">
+                <p>Conectate al servidor y ejecuta en la consola o ingame:</p>
+                <div class="command">/sk reload all</div>
+                <p style="margin-top: 1rem;">O si quieres recargar un script específico:</p>
+                <div class="command">/sk reload tienda</div>
+            </div>
+
+            <!-- PASO 5 -->
+            <h2>Paso 5: Configurar Permisos (LuckPerms)</h2>
+            <div class="step">
+                <p>Si usas <strong>LuckPerms</strong>, otorga permisos a tus jugadores/grupos:</p>
+                <table class="permission-table">
+                    <thead>
+                        <tr>
+                            <th>Comando</th>
+                            <th>Efecto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>/lp group admin permission set [TU_SERVIDOR].*</code></td>
+                            <td>Todos los permisos para admins</td>
+                        </tr>
+                        <tr>
+                            <td><code>/lp group default permission set [TU_SERVIDOR].tienda.usar</code></td>
+                            <td>Todos usan la tienda</td>
+                        </tr>
+                        <tr>
+                            <td><code>/lp group vip permission set [TU_SERVIDOR].rtp.usar</code></td>
+                            <td>VIPs pueden usar RTP</td>
+                        </tr>
+                        <tr>
+                            <td><code>/lp user Minecraft_323 permission set [TU_SERVIDOR].admin</code></td>
+                            <td>User específico es admin</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PASO 6 -->
+            <h2>Paso 6: Verificar Instalación</h2>
+            <div class="step">
+                <p>Comprueba que TODO funciona:</p>
+                <ol style="margin-left: 2rem; margin-top: 0.5rem;">
+                    <li>Ejecuta <code>/spawn</code> - Deberías ir al spawn</li>
+                    <li>Ejecuta <code>/rtp</code> - Te teletransporta a ubicación aleatoria</li>
+                    <li>Ejecuta <code>/menu</code> - Abre el menú de ayuda</li>
+                    <li>Abre <code>/pociones</code> - Muestra guía de alquimia</li>
+                </ol>
+            </div>
+
+            <div class="success">
+                <strong>✅ ¡Si todo funciona, ya está instalado!</strong>
+            </div>
+
+            <!-- SCRIPTS -->
+            <h2>📦 Scripts Disponibles</h2>
+            <div class="scripts-list">
+                <div class="script-item">
+                    <strong>tienda.sk</strong><br>
+                    Tienda de 5 categorías<br>
+                    Comando: <code>/</code> (menú)
+                </div>
+                <div class="script-item">
+                    <strong>Bolsa.sk</strong><br>
+                    Wall Street - Trueque<br>
+                    Comando: <code>/bolsa</code>
+                </div>
+                <div class="script-item">
+                    <strong>rtp.sk</strong><br>
+                    Teletransporte aleatorio<br>
+                    Comando: <code>/rtp</code>
+                </div>
+                <div class="script-item">
+                    <strong>Spawn.sk</strong><br>
+                    Gestión del spawn<br>
+                    Comando: <code>/spawn</code>
+                </div>
+                <div class="script-item">
+                    <strong>pocion.sk</strong><br>
+                    Alquimia con 19 recetas<br>
+                    Comando: <code>/pociones</code>
+                </div>
+                <div class="script-item">
+                    <strong>mobs.sk</strong><br>
+                    Mobs elite T0-T3<br>
+                    Automático (eventos)
+                </div>
+                <div class="script-item">
+                    <strong>calor-extremo.sk</strong><br>
+                    Ilusión del desierto<br>
+                    Automático (en desiertos)
+                </div>
+                <div class="script-item">
+                    <strong>Avisos.sk</strong><br>
+                    Alertas de Chunky<br>
+                    Comando: <code>/chunkyaviso</code>
+                </div>
+                <div class="script-item">
+                    <strong>reparador.sk</strong><br>
+                    Reparación de ítems<br>
+                    Sistema económico
+                </div>
+                <div class="script-item">
+                    <strong>limpieza.sk</strong><br>
+                    Limpieza automática<br>
+                    Comando: <code>/limpiar</code>
+                </div>
+                <div class="script-item">
+                    <strong>mundos.sk</strong><br>
+                    Info de mundos<br>
+                    Comando: <code>/mundos</code>
+                </div>
+                <div class="script-item">
+                    <strong>ayuda.sk</strong><br>
+                    Menú central<br>
+                    Comando: <code>/menu</code>
+                </div>
+            </div>
+
+            <!-- SOLUCIONAR PROBLEMAS -->
+            <h2>🔧 Solucionar Problemas</h2>
+
+            <h3>❌ Error: "Script no se carga"</h3>
+            <div class="step">
+                <p>Soluciones:</p>
+                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
+                    <li>Verifica que SkBee esté instalado: <code>/plugin skbee</code></li>
+                    <li>Recarga Skript: <code>/sk reload all</code></li>
+                    <li>Revisa la consola por errores de sintaxis</li>
+                    <li>Comprueba que los permisos estén bien reemplazados</li>
+                </ul>
+            </div>
+
+            <h3>❌ Error: "No tienes permiso"</h3>
+            <div class="step">
+                <p>Soluciones:</p>
+                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
+                    <li>Verifica que los permisos se reemplazaron correctamente en el script</li>
+                    <li>Usa LuckPerms para otorgar permisos: <code>/lp user [nombre] permission set [TU_SERVIDOR].*</code></li>
+                    <li>Reconectate al servidor para que se apliquen permisos</li>
+                </ul>
+            </div>
+
+            <h3>❌ Los comandos no funcionan</h3>
+            <div class="step">
+                <p>Soluciones:</p>
+                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
+                    <li>Asegúrate de que LuckPerms esté instalado</li>
+                    <li>Verifica que Vault esté instalado para economía</li>
+                    <li>Reemplaza "natureland" en TODOS los archivos .sk</li>
+                    <li>Ejecuta: <code>/sk reload all</code></li>
+                </ul>
+            </div>
+
+            <!-- CONTACTO -->
+            <h2>📞 Soporte</h2>
+            <div class="step">
+                <p><strong>¿Problemas? Contacta:</strong></p>
+                <ul style="margin-left: 2rem; margin-top: 0.5rem;">
+                    <li><strong>Discord:</strong> Minecraft_323</li>
+                    <li><strong>Minecraft:</strong> Minecraft_doors</li>
+                    <li><strong>GitHub:</strong> <a href="https://github.com/mijolandia/Frio-extremo" style="color: #667eea;">mijolandia/Frio-extremo</a></li>
+                </ul>
+            </div>
+
+            <div class="success" style="margin-top: 2rem;">
+                <strong>✅ ¡Listo! Tu servidor está configurado.</strong><br>
+                Disfruta de Frío Extremo 🌨️❄️
+            </div>
+
+            <div style="text-align: center; margin-top: 2rem;">
+                <a href="index.html" class="btn-back">← Volver a inicio</a>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p><strong>👨‍💻 Desarrollador:</strong> Minecraft_323 (14 años) | <strong>🤖 Creado con:</strong> Google Gemini</p>
+        <p style="margin-top: 1rem; opacity: 0.8;">Frío Extremo © 2024 - Todos los derechos reservados</p>
+    </div>
+</body>
+</html>
