@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" fill="url(#grad)" rx="20"/>
+  
+  <!-- Copo de nieve -->
+  <g transform="translate(50, 50)" fill="white">
+    <!-- Centro -->
+    <circle cx="0" cy="0" r="4"/>
+    
+    <!-- 6 puntas principales -->
+    <line x1="0" y1="-25" x2="0" y2="-40" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="0" y1="25" x2="0" y2="40" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="21.65" y1="-12.5" x2="34.64" y2="-20" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="-21.65" y1="12.5" x2="-34.64" y2="20" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="21.65" y1="12.5" x2="34.64" y2="20" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    <line x1="-21.65" y1="-12.5" x2="-34.64" y2="-20" stroke="white" stroke-width="2" stroke-linecap="round"/>
+    
+    <!-- Puntas pequeñas en medio -->
+    <line x1="0" y1="-15" x2="-6" y2="-22" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="0" y1="-15" x2="6" y2="-22" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="0" y1="15" x2="-6" y2="22" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="0" y1="15" x2="6" y2="22" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    
+    <line x1="12.99" y1="-7.5" x2="18" y2="-15" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="12.99" y1="-7.5" x2="20.78" y2="-3.25" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    
+    <line x1="-12.99" y1="7.5" x2="-18" y2="15" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="-12.99" y1="7.5" x2="-20.78" y2="3.25" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    
+    <line x1="12.99" y1="7.5" x2="18" y2="15" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="12.99" y1="7.5" x2="20.78" y2="3.25" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    
+    <line x1="-12.99" y1="-7.5" x2="-18" y2="-15" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    <line x1="-12.99" y1="-7.5" x2="-20.78" y2="-3.25" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  </g>
+</svg>
