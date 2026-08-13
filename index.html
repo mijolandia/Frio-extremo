@@ -17,8 +17,33 @@
         <div class="hero-content">
             <h1>❄️ Frío Extremo</h1>
             <p style="font-size:1.2rem; margin-bottom: 1rem;">Scripts Skript profesionales para PaperMC 1.21.11</p>
-            <p style="font-size:1rem; opacity: 0.9; margin-bottom: 2rem;">12+ scripts listos para descargar</p>
+            <p style="font-size:1rem; opacity: 0.9; margin-bottom: 2rem;">12+ scripts desarrollados con Gemini • Descarga y personaliza</p>
             <a href="#scripts" class="btn-principal">Ver Scripts →</a>
+        </div>
+    </section>
+
+    <section id="about" class="about-section">
+        <div class="container">
+            <h2>ℹ️ ¿Qué es Frío Extremo?</h2>
+            <div class="about-content">
+                <div class="about-card">
+                    <h3>🎮 Para Servidores PaperMC</h3>
+                    <p>Colección completa de scripts <strong>Skript 2.15.4+</strong> para versión <strong>1.21.11</strong> de Minecraft. Añade sistemas de economía, comercio, utilidades y mecánicas únicas.</p>
+                </div>
+                <div class="about-card">
+                    <h3>✨ Características</h3>
+                    <p>✓ Tienda de comercio dinámico<br>
+                       ✓ Sistemas de almacenamiento<br>
+                       ✓ Gestión de mundos<br>
+                       ✓ Pociones y alquimia<br>
+                       ✓ Totalmente personalizable<br>
+                       ✓ Código en español</p>
+                </div>
+                <div class="about-card">
+                    <h3>🤖 Creado con Gemini</h3>
+                    <p>Este proyecto fue desarrollado utilizando <strong>Google Gemini</strong> para generar, optimizar y documentar todos los scripts. Ejemplo de IA aplicada a game development.</p>
+                </div>
+            </div>
         </div>
     </section>
 
@@ -32,13 +57,30 @@
     </section>
 
     <footer style="background: #1a1a2e; color: white; padding: 2rem; text-align: center;">
-        <p><strong>👨‍💻 Desarrollador:</strong> Minecraft_323 (Discord) / Minecraft_doors</p>
-        <p style="font-size: 0.9rem; margin-top: 0.5rem;">14 años • Talento en Skript</p>
+        <div style="margin-bottom: 1rem;">
+            <p><strong>👨‍💻 Desarrollador:</strong> Minecraft_323 (Discord) / Minecraft_doors</p>
+            <p style="font-size: 0.9rem; margin-top: 0.3rem;">14 años • Talento en Skript</p>
+            <p style="font-size: 0.9rem; margin-top: 0.3rem; opacity: 0.8;">🤖 Desarrollo con Google Gemini</p>
+        </div>
         <p style="margin-top: 1rem; opacity: 0.7;">
             <a href="https://github.com/mijolandia/Frio-extremo" style="color: #50e3c2; text-decoration: none;">📧 GitHub</a> • 
-            <a href="README-WEB.md" style="color: #50e3c2; text-decoration: none;">📖 Documentación</a>
+            <a href="INSTALL.md" style="color: #50e3c2; text-decoration: none;">📖 Cómo Instalar</a> • 
+            <a href="#natureland-info" style="color: #50e3c2; text-decoration: none;">⚙️ Personalizar</a>
         </p>
     </footer>
+
+    <section id="natureland-info" class="faq-section">
+        <div class="container">
+            <h3>❓ ¿Qué es "Natureland"?</h3>
+            <p>Encontrarás referencias a "Natureland" en los scripts .sk descargados. Es el <strong>nombre original del servidor</strong> que los desarrolló. Debes <strong>reemplazarlo con tu nombre de servidor</strong>.</p>
+            <p><strong>Líneas a cambiar:</strong></p>
+            <pre style="background: #222; padding: 1rem; border-radius: 4px; overflow-x: auto; color: #50e3c2;">natureland.tienda.*  →  [TU_SERVIDOR].tienda.*
+natureland.spawn    →  [TU_SERVIDOR].spawn
+natureland.admin    →  [TU_SERVIDOR].admin
+</pre>
+            <p style="font-size: 0.9rem; opacity: 0.8;">Busca "natureland" en cada archivo .sk con Ctrl+H (buscar/reemplazar) y personaliza según tu servidor.</p>
+        </div>
+    </section>
 
     <script src="script.js"></script>
 </body>
