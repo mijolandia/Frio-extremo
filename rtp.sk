@@ -1,0 +1,606 @@
+# =====================================================================
+#    RTP HÍBRIDO - V5.8 (TRIPLE WORLD & DELUXE VISUALS WITH DEBUG)
+#    [Equal Cooldowns & Prices | Pure Cosmetic VIP Rewards & Dynamic GUI]
+# =====================================================================
+
+options:
+    prefix: &8[<#00E5FF>&lRTP-MARKET&8]&r
+    cooldown_segundos: 240
+    combat_tag_tiempo: 10
+    
+    # --- CONFIGURACIÓN DE MUNDOS ---
+    m_overworld: world
+    m_antiguo: mundo-antiguo
+    m_nether: world_nether
+    
+    # --- PRECIOS BASE Y BOLSAS ---
+    base_overworld: 200
+    base_antiguo: 200
+    base_nether: 400
+    precio_minimo: 20
+    max_demanda: 40          # Límite de inflación
+    max_tiempo_segundos: 31536000
+
+# ---------------------------------------------------------------------
+# 1. LIFECYCLE & ANTI-CORRUPTION PURGE
+# ---------------------------------------------------------------------
+on load:
+    delete {rtp::sys::viewers::*}
+    delete {rtp::ui::*}
+    delete {rtp::sys::cache::*}
+    delete {rtp::pending::*}
+    set {rtp::sys::market_dirty} to true
+    if {rtp::sys::last_market_update} is not set:
+        set {rtp::sys::last_market_update} to unix timestamp of now
+    
+    sanitizarDatosGlobales()
+
+on script unload:
+    delete {rtp::sys::viewers::*}
+    delete {rtp::ui::*}
+    delete {rtp::sys::cache::*}
+    delete {rtp::pending::*}
+
+# ---------------------------------------------------------------------
+# 2. MOTOR DE DATOS Y PRECIOS EULA-SAFE
+# ---------------------------------------------------------------------
+function sanitizarDatosGlobales():
+    if {rtp::demand::overworld} is not set:
+        set {rtp::demand::overworld} to 0
+    if {rtp::demand::antiguo} is not set:
+        set {rtp::demand::antiguo} to 0
+    if {rtp::demand::nether} is not set:
+        set {rtp::demand::nether} to 0
+        
+    set {rtp::demand::overworld} to max(0, min({@max_demanda}, {rtp::demand::overworld}))
+    set {rtp::demand::antiguo} to max(0, min({@max_demanda}, {rtp::demand::antiguo}))
+    set {rtp::demand::nether} to max(0, min({@max_demanda}, {rtp::demand::nether}))
+    
+    if {rtp::daily::overworld} is not set:
+        set {rtp::daily::overworld} to 0
+    if {rtp::daily::antiguo} is not set:
+        set {rtp::daily::antiguo} to 0
+    if {rtp::daily::nether} is not set:
+        set {rtp::daily::nether} to 0
+
+function sanitizarDatosJugador(uuid: text):
+    set {_cosmetic} to {rtp::cosmetic::%{_uuid}%} ? 1
+    if {_cosmetic} is not between 1 and 5:
+        set {rtp::cosmetic::%{_uuid}%} to 1
+        
+    if ({rtp::time_consumed::%{_uuid}%} ? 0) < 0:
+        set {rtp::time_consumed::%{_uuid}%} to 0
+
+function recompilarCacheGlobal(now: number):
+    sanitizarDatosGlobales()
+    
+    set {_g_disc} to 0
+    if ({rtp::global_discount_expire} ? 0) > {_now}:
+        set {_g_disc} to max(0, min(100, {rtp::global_discount} ? 0)) * 0.01
+    else:
+        delete {rtp::global_discount}
+        delete {rtp::global_discount_expire}
+
+    loop "overworld", "antiguo" and "nether":
+        set {_base} to {@base_overworld}
+        if loop-value is "antiguo":
+            set {_base} to {@base_antiguo}
+        else if loop-value is "nether":
+            set {_base} to {@base_nether}
+            
+        set {_raw_demand} to {rtp::demand::%loop-value%} ? 0
+        set {_demand} to min({@max_demanda}, max(0, {_raw_demand}))
+        
+        # Cálculo dinámico justo
+        set {rtp::sys::cache::precio::%loop-value%} to max({@precio_minimo}, floor(floor({_base} * (1 + ({_demand} * 0.025))) * (1 - {_g_disc})))
+
+# ---------------------------------------------------------------------
+# 3. ÚNICO HILO CENTRAL (SINGLE THREAD TICKER)
+# ---------------------------------------------------------------------
+every 1 second:
+    set {_now} to unix timestamp of now
+    
+    set {_last_upd} to {rtp::sys::last_market_update} ? {_now}
+    if ({_now} - {_last_upd}) >= 14400:
+        set {rtp::sys::last_market_update} to {_now}
+        set {rtp::demand::overworld} to floor(({rtp::demand::overworld} ? 0) * 0.5)
+        set {rtp::demand::antiguo} to floor(({rtp::demand::antiguo} ? 0) * 0.5)
+        set {rtp::demand::nether} to floor(({rtp::demand::nether} ? 0) * 0.5)
+        set {rtp::trend::overworld} to "&c▼ Bajando (-50%%)"
+        set {rtp::trend::antiguo} to "&c▼ Bajando (-50%%)"
+        set {rtp::trend::nether} to "&c▼ Bajando (-50%%)"
+        set {rtp::sys::market_dirty} to true 
+
+    if ({_now} - ({rtp::sys::last_daily_reset} ? 0)) >= 86400:
+        set {rtp::sys::last_daily_reset} to {_now}
+        set {rtp::daily::overworld} to 0
+        set {rtp::daily::antiguo} to 0
+        set {rtp::daily::nether} to 0
+        set {rtp::sys::market_dirty} to true 
+
+    if {rtp::sys::market_dirty} is true:
+        recompilarCacheGlobal({_now})
+        set {rtp::sys::market_dirty} to false
+
+    set {_decay_rest} to max(0, 14400 - ({_now} - ({rtp::sys::last_market_update} ? {_now})))
+    set {_decay_h} to floor({_decay_rest} / 3600)
+    set {_decay_m} to floor(mod({_decay_rest}, 3600) / 60)
+    set {_decay_s} to floor(mod({_decay_rest}, 60))
+    set {_decay_txt} to "%{_decay_h}%h %{_decay_m}%m %{_decay_s}%s"
+
+    loop {rtp::sys::viewers::*}:
+        set {_uuid} to loop-value
+        set {_p} to loop-value parsed as offline player
+        
+        if {_p} is not online:
+            delete {rtp::sys::viewers::%{_uuid}%}
+            delete {rtp::ui::%{_uuid}%::*}
+            continue
+            
+        renderizarUI({_p}, {_uuid}, {_now}, {_decay_txt})
+
+# ---------------------------------------------------------------------
+# 4. UI RENDER PIPELINE (MENÚ PRINCIPAL REDISEÑADO PARA 3 MUNDOS)
+# ---------------------------------------------------------------------
+function renderizarUI(p: player, uuid: text, now: number, decay_txt: text):
+    if name of {_p}'s current inventory is not "    &0&l⮞ <#00E5FF>&lPORTAL DE TELETRANSPORTE&r &0&l⮜":
+        delete {rtp::sys::viewers::%{_uuid}%}
+        delete {rtp::ui::%{_uuid}%::*}
+        stop
+
+    sanitizarDatosJugador({_uuid})
+
+    set {_is_vip} to false
+    if {_p} has permission "rtp.vip":
+        set {_is_vip} to true
+
+    # --- BORDES DINÁMICOS POR RANGO ---
+    if {_is_vip} is true:
+        set {_b1} to yellow stained glass pane named " "
+        set {_b2} to orange stained glass pane named " "
+    else:
+        set {_b1} to cyan stained glass pane named " "
+        set {_b2} to gray stained glass pane named " "
+
+    set slot 0, 8, 27 and 35 of {_p}'s current inventory to {_b1}
+    set slot 1, 7, 9, 17, 18, 26, 28 and 34 of {_p}'s current inventory to {_b2}
+
+    # Cooldown Justo e Igual para Todos
+    set {_last_cd} to {rtp::cooldown::%{_uuid}%}
+    set {_is_cd} to false
+    
+    if {_last_cd} is set:
+        set {_max_cd} to {@cooldown_segundos}
+        set {_passed} to {_now} - (unix timestamp of {_last_cd})
+        
+        if {_passed} < {_max_cd}:
+            set {_is_cd} to true
+            set {_rest} to max(0, {_max_cd} - {_passed})
+            
+            set {_m} to floor({_rest} / 60)
+            set {_s} to floor(mod({_rest}, 60))
+            set {_cd_txt} to "%{_m}%m %{_s}%s"
+            
+            set slot 11 of {_p}'s current inventory to barrier named "<#FF5555>&lOVERWORLD &8(&cEn Cooldown&8)" with lore "" and " &8└ &cRecargando portal..." and "" and " &7Tiempo restante: &f%{_cd_txt}%" and "" and "&8&m------------------------"
+            set slot 13 of {_p}'s current inventory to barrier named "<#FF5555>&lMUNDO ANTIGUO &8(&cEn Cooldown&8)" with lore "" and " &8└ &cRecargando portal..." and "" and " &7Tiempo restante: &f%{_cd_txt}%" and "" and "&8&m------------------------"
+            set slot 15 of {_p}'s current inventory to barrier named "<#FF5555>&lNETHER &8(&cEn Cooldown&8)" with lore "" and " &8└ &cRecargando portal..." and "" and " &7Tiempo restante: &f%{_cd_txt}%" and "" and "&8&m------------------------"
+            set {rtp::ui::%{_uuid}%::was_in_cd} to true
+            
+        else if {rtp::ui::%{_uuid}%::was_in_cd} is true:
+            delete {rtp::cooldown::%{_uuid}%}
+            delete {rtp::ui::%{_uuid}%::was_in_cd}
+
+    set {_use_disc} to {rtp::use_discount::%{_uuid}%} ? true
+
+    set {_ow_price} to {rtp::sys::cache::precio::overworld} ? {@base_overworld}
+    set {_an_price} to {rtp::sys::cache::precio::antiguo} ? {@base_antiguo}
+    set {_ne_price} to {rtp::sys::cache::precio::nether} ? {@base_nether}
+
+    set {_avail_sec} to max(0, ({rtp::ui::%{_uuid}%::snapshot_time} ? 0) - ({rtp::time_consumed::%{_uuid}%} ? 0))
+    if {_avail_sec} > {@max_tiempo_segundos}:
+        set {_avail_sec} to {@max_tiempo_segundos}
+
+    set {_disc_percent} to 0
+    if {_use_disc} is true:
+        set {_disc_percent} to min(50, floor({_avail_sec} / 3600))
+        set {_ow_price} to max({@precio_minimo}, floor({_ow_price} * (1 - ({_disc_percent} * 0.01))))
+        set {_an_price} to max({@precio_minimo}, floor({_an_price} * (1 - ({_disc_percent} * 0.01))))
+        set {_ne_price} to max({@precio_minimo}, floor({_ne_price} * (1 - ({_disc_percent} * 0.01))))
+
+    set {_ow_trend} to {rtp::trend::overworld} ? "&e⬌ Estable"
+    set {_an_trend} to {rtp::trend::antiguo} ? "&e⬌ Estable"
+    set {_ne_trend} to {rtp::trend::nether} ? "&e⬌ Estable"
+    
+    set {_ow_24h} to {rtp::daily::overworld} ? 0
+    set {_an_24h} to {rtp::daily::antiguo} ? 0
+    set {_ne_24h} to {rtp::daily::nether} ? 0
+
+    set {_market_lore::*} to "" and "&8&m------------------------" and " &a📊 &lESTADÍSTICAS EN VIVO" and " &8├ &7Demanda OW: &e%{rtp::demand::overworld} ? 0% v. &8(%{_ow_trend}%&8)" and " &8├ &7Demanda ANT: &e%{rtp::demand::antiguo} ? 0% v. &8(%{_an_trend}%&8)" and " &8├ &7Demanda NET: &e%{rtp::demand::nether} ? 0% v. &8(%{_ne_trend}%&8)" and " &8├ &7Ajuste Dinámico: &e-%{_decay_txt}%" and " &8└ &7Tráfico 24h: &f%{_ow_24h}% (OW) &8| &f%{_an_24h}% (ANT) &8| &f%{_ne_24h}% (NET)" and "&8&m------------------------"
+
+    if {_is_cd} is false:
+        # SLOT 11: OVERWORLD
+        set slot 11 of {_p}'s current inventory to grass block named "<#00FF7F>&l✦ OVERWORLD ✦" with lore "" and " &8└ &7Teletransporte Aleatorio al Mundo Normal." and "" and " &f• &7Costo de viaje: &a$%{_ow_price}%" and "" and " &e▶ ¡Haz clic para iniciar viaje!" and {_market_lore::*}
+        
+        # SLOT 13: MUNDO ANTIGUO
+        set slot 13 of {_p}'s current inventory to mossy cobblestone named "<#FFAA00>&l✦ MUNDO ANTIGUO ✦" with lore "" and " &8└ &7Teletransporte Aleatorio al Mapa Clásico." and "" and " &f• &7Costo de viaje: &a$%{_an_price}%" and "" and " &e▶ ¡Haz clic para iniciar viaje!" and {_market_lore::*}
+
+        # SLOT 15: NETHER
+        if name of {_p}'s world is not "{@m_nether}":
+            set slot 15 of {_p}'s current inventory to crying obsidian named "<#FF5555>&l✦ NETHER ✦ &8(&cBloqueado&8)" with lore "" and " &8└ &cDebes estar físicamente en el Nether" and "   &cpara activar esta función."
+        else:
+            set slot 15 of {_p}'s current inventory to netherrack named "<#FF3333>&l✦ NETHER ✦" with lore "" and " &8└ &7Teletransporte Aleatorio en el Infierno." and "" and " &f• &7Costo de viaje: &a$%{_ne_price}%" and "" and " &e▶ ¡Haz clic para iniciar viaje!" and {_market_lore::*}
+
+    set {_admin_note} to ""
+    if {_p} has permission "rtp.admin":
+        set {_admin_note} to "&c[ Staff: Clic para abrir Panel OP ]"
+
+    # SLOT 22: GUÍA DE MERCADO
+    set slot 22 of {_p}'s current inventory to book named "<#FFD700>&l📖 GUÍA DE MERCADO Y REGULACIÓN" with lore "" and " &7El valor del viaje cambia dinámicamente" and " &7según el uso global del servidor." and "" and " &f• &bBolsa Regulada:&7 Límite de 40 acumulaciones" and " &f• &bReinicio de Inflación:&7 Cada 4 horas (-50%%)" and " &f• &bDescuento por Juego:&7 Hasta &a-50%%&7 de ahorro" and "" and {_admin_note}
+
+    # SLOT 20: COSMÉTICOS
+    set {_selected_id} to {rtp::cosmetic::%{_uuid}%} ? 1
+    set {_effect_name} to "<#00E5FF>1. Destello Místico (Portal)"
+    if {_selected_id} is 2:
+        set {_effect_name} to "<#FFA500>2. Viento Térmico (Humo)"
+    else if {_selected_id} is 3:
+        set {_effect_name} to "<#FF55FF>3. Aliento Místico (Dragón VIP)"
+    else if {_selected_id} is 4:
+        set {_effect_name} to "<#FF3333>4. Fuego Infernal (Magma VIP)"
+    else if {_selected_id} is 5:
+        set {_effect_name} to "<#FFD700>5. Rayo Estelar (Tótem VIP)"
+
+    set slot 20 of {_p}'s current inventory to brewing stand named "<#AA00FF>&l✨ ESTÉTICAS Y ANIMACIONES" with lore "" and " &7Personaliza la llegada de tu teletransporte." and "" and " &f• &7Efecto equipado:" and "    &8└ %{_effect_name}%" and "" and " &e▶ Clic para abrir el armario cosmético"
+
+    # SLOT 24: DESCUENTO POR HORAS
+    if {_use_disc} is true:
+        set slot 24 of {_p}'s current inventory to clock named "<#00FF7F>&l⏱ DESCUENTO POR HORAS: &a&lACTIVO" with lore "" and " &7Ahorro aplicado actualmente: &e-%{_disc_percent}%%%" and " &8└ Límite global de fidelidad: -50%%" and "" and " &e▶ Haz clic para &cDESACTIVAR" and {_market_lore::*}
+    else:
+        set slot 24 of {_p}'s current inventory to clock named "<#FF5555>&l⏱ DESCUENTO POR HORAS: &c&lPAUSADO" with lore "" and " &7Ahorro aplicado actualmente: &e0%%" and " &8└ Límite global de fidelidad: -50%%" and "" and " &e▶ Haz clic para &aACTIVAR" and {_market_lore::*}
+
+    # SLOT 4: PERFIL JUGADOR / VIP
+    set {_days} to floor({_avail_sec} / 86400)
+    set {_hours} to floor(mod({_avail_sec}, 86400) / 3600)
+    
+    if {_is_vip} is true:
+        set slot 4 of {_p}'s current inventory to nether star named "<#FFD700>&l👑 PERFIL VIP COMPLIANT" with lore "" and " &8&m------------------------" and " &7Estado del Rango: <#FFD700>&lVIP VIP PRO" and " &7Tiempo Acumulado: &a%{_days}%d %{_hours}%h" and " &7Beneficios Cosméticos: &a5/5 Desbloqueados" and " &8&m------------------------" and " &a✔ Servidor 100%% EULA Mojang Compliant"
+    else:
+        set slot 4 of {_p}'s current inventory to compass named "<#00E5FF>&l👤 PERFIL DE JUGADOR" with lore "" and " &8&m------------------------" and " &7Estado del Rango: &7Jugador Estándar" and " &7Tiempo Acumulado: &a%{_days}%d %{_hours}%h" and " &7Beneficios Cosméticos: &e2/5 Desbloqueados" and " &8&m------------------------" and " &e⭐ ¡Obtén VIP en la tienda para animaciones exclusivas!"
+
+# ---------------------------------------------------------------------
+# 5. SUBMENÚ DE SELECCIÓN DE ESTÉTICAS
+# ---------------------------------------------------------------------
+function abrirMenuEsteticas(p: player):
+    set {_uuid} to {_p}'s uuid
+    play sound "item.book.page_turn" with volume 0.8 and pitch 1.2 to {_p}
+    
+    set {_is_vip} to false
+    if {_p} has permission "rtp.vip":
+        set {_is_vip} to true
+        
+    set {_gui} to a new chest inventory with 4 rows named "    &0&l⮞ <#AA00FF>&lARMARIO COSMÉTICO VIP&r &0&l⮜"
+    
+    set slot (integers between 0 and 35) of {_gui} to black stained glass pane named " "
+    if {_is_vip} is true:
+        set slot 0, 8, 27 and 35 of {_gui} to yellow stained glass pane named " "
+        set slot 1, 7, 9, 17, 18, 26, 28 and 34 of {_gui} to purple stained glass pane named " "
+    else:
+        set slot 0, 8, 27 and 35 of {_gui} to cyan stained glass pane named " "
+        set slot 1, 7, 9, 17, 18, 26, 28 and 34 of {_gui} to gray stained glass pane named " "
+
+    set slot 10 of {_gui} to feather named "<#00E5FF>&lEFECTOS BÁSICOS" with lore " &7Disponibles para todos los usuarios."
+    set slot 13 of {_gui} to nether star named "<#FFD700>&lEFECTOS VIP EXCLUSIVOS" with lore " &7Estéticas exclusivas sin ventaja de juego."
+
+    sanitizarDatosJugador({_uuid})
+    set {_sel} to {rtp::cosmetic::%{_uuid}%} ? 1
+
+    set {_s1} to "&e▶ Haz clic para equipar"
+    if {_sel} is 1:
+        set {_s1} to "<#00FF7F>&l✔ EQUIPADO ATUALMENTE"
+
+    set {_s2} to "&e▶ Haz clic para equipar"
+    if {_sel} is 2:
+        set {_s2} to "<#00FF7F>&l✔ EQUIPADO ATUALMENTE"
+
+    set {_s3} to "&e▶ Haz clic para equipar"
+    if {_sel} is 3:
+        set {_s3} to "<#00FF7F>&l✔ EQUIPADO ATUALMENTE"
+
+    set {_s4} to "&e▶ Haz clic para equipar"
+    if {_sel} is 4:
+        set {_s4} to "<#00FF7F>&l✔ EQUIPADO ATUALMENTE"
+
+    set {_s5} to "&e▶ Haz clic para equipar"
+    if {_sel} is 5:
+        set {_s5} to "<#00FF7F>&l✔ EQUIPADO ATUALMENTE"
+
+    set slot 11 of {_gui} to ender pearl named "<#00E5FF>1. Destello Místico" with lore "" and " &8├ &7Partículas: &bEnder Portal" and " &8└ &7Sonido: &bTeleportation" and "" and " &a✔ Desbloqueado (Global)" and "" and {_s1}
+    set slot 12 of {_gui} to campfire named "<#FFA500>2. Viento Térmico" with lore "" and " &8├ &7Partículas: &fCampfire Smoke" and " &8└ &7Sonido: &fExtinguish" and "" and " &a✔ Desbloqueado (Global)" and "" and {_s2}
+
+    if {_is_vip} is true:
+        set slot 14 of {_gui} to dragon breath named "<#FF55FF>&l3. Aliento Místico 👑" with lore "" and " &8├ &7Partículas: &dDragon Breath" and " &8└ &7Sonido: &dChallenge Complete" and "" and " <#FFD700>★ Beneficio Rango VIP" and "" and {_s3}
+        set slot 15 of {_gui} to blaze powder named "<#FF3333>&l4. Fuego Infernal 👑" with lore "" and " &8├ &7Partículas: &cFlames & Lava" and " &8└ &7Sonido: &cBlaze Shoot" and "" and " <#FFD700>★ Beneficio Rango VIP" and "" and {_s4}
+        set slot 16 of {_gui} to totem of undying named "<#FFD700>&l5. Rayo Estelar 👑" with lore "" and " &8├ &7Partículas: &eTotem Radiance" and " &8└ &7Sonido: &eTotem Activation" and "" and " <#FFD700>★ Beneficio Rango VIP" and "" and {_s5}
+    else:
+        set slot 14 of {_gui} to crying obsidian named "&c3. Aliento Místico &8(Bloqueado)" with lore "" and " &8├ &7Partículas: &dDragon Breath" and " &8└ &7Sonido: &dChallenge Complete" and "" and " &c🔒 Exclusivo para Rangos VIP" and " &7¡Adquiérelo en nuestra tienda!"
+        set slot 15 of {_gui} to magma cream named "&c4. Fuego Infernal &8(Bloqueado)" with lore "" and " &8├ &7Partículas: &cFlames & Lava" and " &8└ &7Sonido: &cBlaze Shoot" and "" and " &c🔒 Exclusivo para Rangos VIP" and " &7¡Adquiérelo en nuestra tienda!"
+        set slot 16 of {_gui} to structure void named "&c5. Rayo Estelar &8(Bloqueado)" with lore "" and " &8├ &7Partículas: &eTotem Radiance" and " &8└ &7Sonido: &eTotem Activation" and "" and " &c🔒 Exclusivo para Rangos VIP" and " &7¡Adquiérelo en nuestra tienda!"
+
+    set slot 31 of {_gui} to arrow named "<#FF5555>&l◄ VOLVER AL MENÚ CENTRAL"
+    open {_gui} to {_p}
+
+# ---------------------------------------------------------------------
+# 6. MANEJO DE EVENTOS Y CLICS
+# ---------------------------------------------------------------------
+function abrirMenuRTP(p: player):
+    set {_uuid} to {_p}'s uuid
+    play sound "ui.button.click" with volume 0.8 and pitch 1.2 to {_p}
+    
+    set {_gui} to a new chest inventory with 4 rows named "    &0&l⮞ <#00E5FF>&lPORTAL DE TELETRANSPORTE&r &0&l⮜"
+    set slot (integers between 0 and 35) of {_gui} to black stained glass pane named " "
+    set slot 31 of {_gui} to barrier named "<#FF5555>&lCERRAR INTERFAZ"
+    open {_gui} to {_p}
+    
+    set {_t} to time played of {_p}
+    set {rtp::ui::%{_uuid}%::snapshot_time} to 0
+    if {_t} is set:
+        set {rtp::ui::%{_uuid}%::snapshot_time} to floor(seconds of {_t})
+        
+    set {rtp::sys::viewers::%{_uuid}%} to {_uuid}
+    
+    set {_now} to unix timestamp of now
+    set {_decay_rest} to max(0, 14400 - ({_now} - ({rtp::sys::last_market_update} ? {_now})))
+    set {_decay_h} to floor({_decay_rest} / 3600)
+    set {_decay_m} to floor(mod({_decay_rest}, 3600) / 60)
+    set {_decay_s} to floor(mod({_decay_rest}, 60))
+    renderizarUI({_p}, {_uuid}, {_now}, "%{_decay_h}%h %{_decay_m}%m %{_decay_s}%s")
+
+on inventory close:
+    if name of event-inventory is "    &0&l⮞ <#00E5FF>&lPORTAL DE TELETRANSPORTE&r &0&l⮜":
+        delete {rtp::sys::viewers::%player's uuid%}
+        delete {rtp::ui::%player's uuid%::*}
+
+on quit:
+    delete {rtp::sys::viewers::%player's uuid%}
+    delete {rtp::ui::%player's uuid%::*}
+    delete {rtp::pending::%player's uuid%}
+
+# ---------------------------------------------------------------------
+# 7. CORE DE EJECUCIÓN RTP & LLEGADA EN DESTINO
+# ---------------------------------------------------------------------
+function iniciarRTP(p: player, tipo: text):
+    set {_uuid} to {_p}'s uuid
+    set {_now} to unix timestamp of now
+
+    set {_last_combat} to {rtp::combat::%{_uuid}%}
+    if {_last_combat} is set:
+        set {_passed_combat} to {_now} - {_last_combat}
+        if {_passed_combat} < {@combat_tag_tiempo}:
+            play sound "entity.villager.no" with volume 0.8 and pitch 1 to {_p}
+            send "{@prefix} &c⚠ En combate. Espera &e%{@combat_tag_tiempo} - {_passed_combat}%s&c." to {_p}
+            stop
+
+    set {_is_bypass} to false
+    if {_p} has permission "rtp.admin":
+        set {_is_bypass} to true
+    else if {_p} has permission "rtp.bypass":
+        set {_is_bypass} to true
+
+    if {_tipo} is "nether":
+        if name of {_p}'s world is not "{@m_nether}":
+            send "{@prefix} &cDebes estar en el Nether." to {_p}
+            stop
+
+    if {_is_bypass} is false:
+        set {_max_cd} to {@cooldown_segundos}
+        set {_last} to {rtp::cooldown::%{_uuid}%}
+        if {_last} is set:
+            if ({_now} - (unix timestamp of {_last})) < {_max_cd}:
+                play sound "entity.villager.no" with volume 0.8 and pitch 1 to {_p}
+                send "{@prefix} &c⚠ Debes esperar antes de teletransportarte." to {_p}
+                stop
+
+    set {_costo} to 0
+    if {_is_bypass} is false:
+        set {_cost_cache} to {rtp::sys::cache::precio::%{_tipo}%} ? {@base_overworld}
+
+        set {_disc_percent} to 0
+        if ({rtp::use_discount::%{_uuid}%} ? true) is true:
+            set {_avail_sec} to max(0, (floor(seconds of (time played of {_p}))) - ({rtp::time_consumed::%{_uuid}%} ? 0))
+            if {_avail_sec} >= 3600:
+                set {_disc_percent} to min(50, floor({_avail_sec} / 3600))
+                add 3600 to {rtp::time_consumed::%{_uuid}%}
+                send "{@prefix} &e🔥 ¡Has gastado 1h de tu tiempo acumulado para obtener descuento!" to {_p}
+
+        set {_costo} to max({@precio_minimo}, floor({_cost_cache} * (1 - ({_disc_percent} * 0.01))))
+
+        if {_p}'s balance < {_costo}:
+            play sound "entity.villager.no" with volume 0.8 and pitch 1 to {_p}
+            send "{@prefix} &c⚠ Dinero insuficiente ($%{_costo}%)." to {_p}
+            stop
+            
+        remove {_costo} from {_p}'s balance
+        set {rtp::cooldown::%{_uuid}%} to now
+
+    add 1 to {rtp::demand::%{_tipo}%}
+    add 1 to {rtp::daily::%{_tipo}%}
+    set {rtp::trend::%{_tipo}%} to "&a▲ Subiendo"
+    set {rtp::sys::market_dirty} to true
+
+    set {rtp::pending::%{_uuid}%} to true
+
+    send "{@prefix} &a¡Buscando destino! &7(Costo: &e$%{_costo}%&7)" to {_p}
+    close {_p}'s inventory
+    
+    # --- EJECUCIÓN DEL TELETRANSPORTE A BETTERRTP ---
+    if {_tipo} is "nether":
+        execute console command "betterrtp:rtp player %{_p}'s name% {@m_nether}"
+    else if {_tipo} is "antiguo":
+        # 🧪 TEST: Mensaje previo al envio de comando
+        send "{@prefix} &d[TESTING] Solicitando BetterRTP hacia mundo: &f{@m_antiguo}" to {_p}
+        execute console command "betterrtp:rtp player %{_p}'s name% {@m_antiguo}"
+    else:
+        execute console command "betterrtp:rtp player %{_p}'s name% {@m_overworld}"
+
+# --- DETECTOR DE LLEGADA CON EFECTOS & TESTING ---
+on teleport:
+    if {rtp::pending::%player's uuid%} is set:
+        delete {rtp::pending::%player's uuid%}
+        wait 3 ticks
+        
+        # 🧪 TEST: Mensaje de confirmación del mundo actual tras la llegada
+        set {_mundo_actual} to name of player's world
+        send "{@prefix} &a&l[TESTING] ¡Llegada confirmada! Mundo actual: &b&l%{_mundo_actual}%" to player
+        
+        sanitizarDatosJugador(player's uuid)
+        set {_cosmetic_id} to {rtp::cosmetic::%player's uuid%} ? 1
+        
+        if {_cosmetic_id} is 2:
+            play sound "block.fire.extinguish" with volume 0.8 and pitch 0.8 to player
+            execute console command "execute at %player's name% run particle minecraft:campfire_smoke ~ ~1 ~ 0.3 0.8 0.3 0.01 30 force"
+        else if {_cosmetic_id} is 3:
+            play sound "ui.toast.challenge_complete" with volume 1 and pitch 1.4 to player
+            execute console command "execute at %player's name% run particle minecraft:dragon_breath ~ ~1 ~ 0.3 0.8 0.3 0.01 30 force"
+        else if {_cosmetic_id} is 4:
+            play sound "entity.blaze.shoot" with volume 0.9 and pitch 1 to player
+            execute console command "execute at %player's name% run particle minecraft:flame ~ ~1 ~ 0.3 0.8 0.3 0.01 30 force"
+            execute console command "execute at %player's name% run particle minecraft:lava ~ ~1 ~ 0.3 0.8 0.3 0.01 15 force"
+        else if {_cosmetic_id} is 5:
+            play sound "item.totem.use" with volume 0.8 and pitch 1.5 to player
+            execute console command "execute at %player's name% run particle minecraft:totem_of_undying ~ ~1 ~ 0.3 0.8 0.3 0.2 40 force"
+        else:
+            play sound "entity.enderman.teleport" with volume 0.8 and pitch 1.0 to player
+            execute console command "execute at %player's name% run particle minecraft:portal ~ ~1 ~ 0.3 0.8 0.3 0.5 20 force"
+
+# ---------------------------------------------------------------------
+# 8. LISTENERS & COMMANDS
+# ---------------------------------------------------------------------
+command /rtp:
+    aliases: /wild, /teleportrandom
+    trigger:
+        abrirMenuRTP(player)
+
+on damage of player:
+    if attacker is a player:
+        set {rtp::combat::%victim's uuid%} to unix timestamp of now
+        set {rtp::combat::%attacker's uuid%} to unix timestamp of now
+
+command /rtpreset [<text>]:
+    permission: rtp.admin
+    trigger:
+        delete {rtp::price::*}
+        delete {rtp::demand::*}
+        delete {rtp::cooldown::*}
+        delete {rtp::combat::*}
+        delete {rtp::time_consumed::*}
+        delete {rtp::use_discount::*}
+        delete {rtp::global_discount}
+        delete {rtp::global_discount_expire}
+        delete {rtp::daily::*}
+        delete {rtp::trend::*}
+        delete {rtp::cosmetic::*}
+        delete {rtp::pending::*}
+        set {rtp::sys::last_market_update} to unix timestamp of now
+        set {rtp::sys::market_dirty} to true
+        send "{@prefix} &aBase de datos reiniciada." to player
+
+on inventory click:
+    if name of event-inventory is "    &0&l⮞ <#00E5FF>&lPORTAL DE TELETRANSPORTE&r &0&l⮜":
+        cancel event
+        set {_slot} to index of event-slot
+        
+        if {_slot} is 11:
+            iniciarRTP(player, "overworld")
+        else if {_slot} is 13:
+            iniciarRTP(player, "antiguo")
+        else if {_slot} is 15:
+            iniciarRTP(player, "nether")
+        else if {_slot} is 22:
+            if player has permission "rtp.admin":
+                set {_gui} to a new chest inventory with 3 rows named "    &c&lPanel OP"
+                set slot (integers between 0 and 26) of {_gui} to gray stained glass pane named " "
+                set slot 13 of {_gui} to diamond named "&6&lOFERTA MÁXIMA: -25%% por 5 Horas" with lore "&e▶ Clic para activar"
+                set slot 15 of {_gui} to redstone named "&c&lAPAGAR EVENTO" with lore "&e▶ Clic para desactivar"
+                open {_gui} to player
+            else:
+                play sound "item.book.page_turn" with volume 0.8 and pitch 1 to player
+        else if {_slot} is 20:
+            abrirMenuEsteticas(player)
+        else if {_slot} is 24:
+            if ({rtp::use_discount::%player's uuid%} ? true) is true:
+                set {rtp::use_discount::%player's uuid%} to false
+                play sound "block.note_block.bass" with volume 0.7 and pitch 0.8 to player
+            else:
+                set {rtp::use_discount::%player's uuid%} to true
+                play sound "block.note_block.pling" with volume 0.7 and pitch 1.5 to player
+            
+            set {_now} to unix timestamp of now
+            set {_decay_rest} to max(0, 14400 - ({_now} - ({rtp::sys::last_market_update} ? {_now})))
+            set {_decay_h} to floor({_decay_rest} / 3600)
+            set {_decay_m} to floor(mod({_decay_rest}, 3600) / 60)
+            set {_decay_s} to floor(mod({_decay_rest}, 60))
+            renderizarUI(player, player's uuid, {_now}, "%{_decay_h}%h %{_decay_m}%m %{_decay_s}%s")
+            
+        else if {_slot} is 31:
+            close player's inventory
+
+    else if name of event-inventory is "    &0&l⮞ <#AA00FF>&lARMARIO COSMÉTICO VIP&r &0&l⮜":
+        cancel event
+        set {_slot} to index of event-slot
+        set {_uuid} to player's uuid
+        
+        if {_slot} is 11:
+            set {rtp::cosmetic::%{_uuid}%} to 1
+            play sound "entity.experience_orb.pickup" with volume 0.8 and pitch 1.2 to player
+            abrirMenuEsteticas(player)
+        else if {_slot} is 12:
+            set {rtp::cosmetic::%{_uuid}%} to 2
+            play sound "entity.experience_orb.pickup" with volume 0.8 and pitch 1.2 to player
+            abrirMenuEsteticas(player)
+        else if {_slot} is 14:
+            if player has permission "rtp.vip":
+                set {rtp::cosmetic::%{_uuid}%} to 3
+                play sound "entity.player.levelup" with volume 0.8 and pitch 1.4 to player
+                abrirMenuEsteticas(player)
+            else:
+                play sound "entity.villager.no" with volume 0.8 and pitch 1 to player
+                send "{@prefix} &c🔒 ¡Este efecto pertenece al Rango VIP!" to player
+        else if {_slot} is 15:
+            if player has permission "rtp.vip":
+                set {rtp::cosmetic::%{_uuid}%} to 4
+                play sound "entity.player.levelup" with volume 0.8 and pitch 1.4 to player
+                abrirMenuEsteticas(player)
+            else:
+                play sound "entity.villager.no" with volume 0.8 and pitch 1 to player
+                send "{@prefix} &c🔒 ¡Este efecto pertenece al Rango VIP!" to player
+        else if {_slot} is 16:
+            if player has permission "rtp.vip":
+                set {rtp::cosmetic::%{_uuid}%} to 5
+                play sound "entity.player.levelup" with volume 0.8 and pitch 1.4 to player
+                abrirMenuEsteticas(player)
+            else:
+                play sound "entity.villager.no" with volume 0.8 and pitch 1 to player
+                send "{@prefix} &c🔒 ¡Este efecto pertenece al Rango VIP!" to player
+        else if {_slot} is 31:
+            abrirMenuRTP(player)
+
+    else if name of event-inventory is "    &c&lPanel OP":
+        cancel event
+        if index of event-slot is 13:
+            set {rtp::global_discount} to 25
+            set {rtp::global_discount_expire} to (unix timestamp of now) + 18000
+            send "{@prefix} &aEvento activado." to player
+            set {rtp::sys::market_dirty} to true
+            abrirMenuRTP(player)
+        else if index of event-slot is 15:
+            delete {rtp::global_discount}
+            delete {rtp::global_discount_expire}
+            send "{@prefix} &cEvento apagado." to player
+            set {rtp::sys::market_dirty} to true
+            abrirMenuRTP(player)
+
+command /rtpreload:
+    permission: rtp.admin
+    permission message: "{@prefix} &cNo tienes permiso para ejecutar este comando."
+    trigger:
+        send "{@prefix} &eReiniciando y recargando el script..." to player
+        execute console command "sk reload Semi-plugins/rtp"

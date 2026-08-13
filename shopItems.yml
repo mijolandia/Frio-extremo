@@ -1,0 +1,90 @@
+Items:
+  PicoSuper:
+    pointPrice: 5000.0
+    vaultPrice: 0.0
+    Icon:
+      Id: diamond_pickaxe
+      Name: "&6Pico Legendario del Minero"
+      Lore:
+      - "&7Encantamientos incluidos:"
+      - "&e• Eficiencia V"
+      - "&e• Irrompibilidad III"
+      - "&e• Fortuna III"
+      - ""
+      - "&7Requiere: &eMinero Nivel 30"
+      HideWithoutPermission: false
+      HideIfThereIsNoEnoughPoints: false
+    RequiredJobLevels:
+    - Minero-30
+    PerformCommands:
+    - "msg [player] &a¡Gracias por comprar el Pico Legendario del Minero!"
+    GiveItems:
+      Pico:
+        Id: diamond_pickaxe
+        Name: "&6Pico Legendario del Minero"
+        Enchants:
+        - DIG_SPEED=5
+        - DURABILITY=3
+        - LOOT_BONUS_BLOCKS=3
+
+  PalaNovato:
+    pointPrice: 50.0
+    vaultPrice: 0.0
+    Icon:
+      Id: wooden_shovel
+      Name: "&ePala del Aprendiz"
+      Lore:
+      - "&7Herramienta básica para comenzar a excavar."
+      - ""
+      - "&7Requiere: &eExcavador Nivel 5"
+      HideWithoutPermission: false
+      HideIfThereIsNoEnoughPoints: false
+    RequiredJobLevels:
+    - Excavador-5
+    PerformCommands:
+    - "msg [player] &a¡Has comprado una Pala del Aprendiz!"
+    GiveItems:
+      Pala:
+        Id: wooden_shovel
+
+  LibroPesca:
+    pointPrice: 1000.0
+    vaultPrice: 0.0
+    Icon:
+      Id: enchanted_book
+      Name: "&bLibro Encantado: Señuelo III"
+      Lore:
+      - "&7Perfecto para mejorar tu caña de pescar."
+      - ""
+      - "&7Requiere: &ePescador Nivel 20"
+      HideWithoutPermission: false
+      HideIfThereIsNoEnoughPoints: false
+    RequiredJobLevels:
+    - Pescador-20
+    PerformCommands:
+    - "msg [player] &a¡Has comprado el Libro Encantado de Señuelo III!"
+    GiveItems:
+      Libro:
+        Id: enchanted_book
+        Enchants:
+        - LURE=3
+
+  Elitros:
+    pointPrice: 25000.0
+    vaultPrice: 0.0
+    Icon:
+      Id: elytra
+      Name: "&cAlas de Ángel (Élitros)"
+      Lore:
+      - "&7Vuela por el mundo con la máxima recompensa."
+      - ""
+      - "&7Requiere: &eExplorador Nivel 40"
+      HideWithoutPermission: false
+      HideIfThereIsNoEnoughPoints: false
+    RequiredJobLevels:
+    - Explorador-40
+    PerformCommands:
+    - "msg [player] &a¡Felicidades! Has adquirido las Alas de Ángel."
+    GiveItems:
+      Elytra:
+        Id: elytra

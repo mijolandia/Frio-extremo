@@ -1,0 +1,45 @@
+# ==========================================
+# Script: mundos.sk
+# Descripción: Menú informativo de los mundos del Overworld
+# ==========================================
+
+command /mundos:
+    aliases: /mundo, /worlds
+    trigger:
+        # Inventario de 3 filas (27 slots)
+        set {_menu} to a new chest inventory with 3 rows with name "&2&lMUNDOS DEL OVERWORLD"
+        
+        # Decoración - Cristal Negro y Gris
+        set slot 0, 1, 2, 3, 4, 5, 6, 7, 8, 18, 19, 20, 21, 23, 24, 25 and 26 of {_menu} to black stained glass pane named " "
+        set slot 9 and 17 of {_menu} to gray stained glass pane named " "
+        
+        # ----------------------------------------
+        # Slot 11: Mundo Principal (world)
+        # ----------------------------------------
+        set slot 11 of {_menu} to grass block named "&a&lMundo Principal &7(world)" with lore "" and "&8⮞ &7El mapa principal activo del servidor." and "" and "&8• &7Dificultad: &cDifícil &7(Hard)" and "&8• &7PvP: &aActivado" and "&8• &7Límite del mapa: &eRadio 500 bloques" and "&7  (Área: 1,000 x 1,000 bloques)" and "&8• &7Uso: &fSurvival & Construcción" and "" and "&eⓘ Usa &a/rtp &epara teletransportarte."
+
+        # ----------------------------------------
+        # Slot 15: Mundo Antiguo (Mundo-antiguo)
+        # ----------------------------------------
+        set slot 15 of {_menu} to mossy cobblestone named "&e&lMundo Antiguo &7(Mundo-antiguo)" with lore "" and "&8⮞ &7El mapa histórico del servidor." and "" and "&8• &7Dificultad: &cDifícil &7(Hard)" and "&8• &7PvP: &aActivado" and "&8• &7Límite del mapa: &eRadio 5,000 bloques" and "&7  (Área: 10,000 x 10,000 bloques)" and "&8• &7Uso: &fExploración & Recursos" and "" and "&eⓘ Usa &a/rtp &epara viajar aquí."
+
+        # ----------------------------------------
+        # Slot 13: Nota Informativa
+        # ----------------------------------------
+        set slot 13 of {_menu} to book named "&b&l¿Cómo viajar?" with lore "" and "&8⮞ &7Este menú es únicamente &fInformativo&7." and "&8⮞ &7Para explorar estos mundos debes" and "&7  utilizar el comando &a/rtp&7." and ""
+
+        # ----------------------------------------
+        # Slot 22: Botón Cerrar
+        # ----------------------------------------
+        set slot 22 of {_menu} to arrow named "&c&l◀ Cerrar" with lore "&7Haz clic para salir del menú."
+        
+        open {_menu} to player
+
+# ==========================================
+# Cancelar interacción de ítems en el menú
+# ==========================================
+on inventory click:
+    if name of event-inventory is "&2&lMUNDOS DEL OVERWORLD":
+        cancel event
+        if index of event-slot is 22:
+            close player's inventory

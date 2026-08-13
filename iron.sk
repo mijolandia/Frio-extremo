@@ -1,0 +1,339 @@
+# =====================================================================
+#   🌿 NATURELAND | ORE INJECTOR & ALCHEMY DROPS PRO v4.5
+#   (Fix: Paquetes por Modos + Densidad Dinámica + WorldEdit Nativo)
+# =====================================================================
+
+options:
+    prefix: &8[&6&lNature&e&lLAND&8] &7»
+    sound_click: ui.button.click
+    sound_exec: block.beacon.activate
+    sound_config: block.note_block.pling
+    world_antiguo: mundo-antiguo
+
+# =====================================================================
+# 1. COMANDOS PRINCIPALES
+# =====================================================================
+command /minerales [<text>]:
+    permission: op
+    permission message: &cNo tienes permiso para administrar los minerales.
+    trigger:
+        if {ore_radius::%uuid of player%} is not set:
+            set {ore_radius::%uuid of player%} to 25
+        if {ore_density::%uuid of player%} is not set:
+            set {ore_density::%uuid of player%} to 0.20
+
+        if arg-1 is "selector":
+            abrirSelectorMinerales(player)
+        else if arg-1 is "radio" or "ajustes":
+            abrirMenuAjustesRadio(player)
+        else:
+            abrirPanelMinerales(player)
+
+command /configMundoAntiguo:
+    permission: op
+    trigger:
+        abrirPanelMinerales(player)
+
+# =====================================================================
+# 2. FUNCIONES DE MENÚS (GUIs)
+# =====================================================================
+function abrirPanelMinerales(p: player):
+    set {_u} to uuid of {_p}
+    if {ore_radius::%{_u}%} is not set:
+        set {ore_radius::%{_u}%} to 25
+    if {ore_density::%{_u}%} is not set:
+        set {ore_density::%{_u}%} to 0.20
+
+    set {_r} to {ore_radius::%{_u}%}
+    set {_d} to {ore_density::%{_u}%}
+    set {_pct} to "%%"
+
+    open a new chest inventory with 3 rows named "&8&l⛏ &a&lREGENERADOR DE MINERALES" to {_p}
+    
+    loop integers between 0 and 8:
+        set slot loop-value of {_p}'s current inventory to black stained glass pane named "&7"
+    loop integers between 18 and 26:
+        set slot loop-value of {_p}'s current inventory to black stained glass pane named "&7"
+        
+    set slot 4 of {_p}'s current inventory to comparator named "&e&l⚙ AJUSTES DE INYECCIÓN" with lore "&7Configuración actual de WorldEdit:" and "&8• &fRadio: &a%{_r}% bloques" and "&8• &fDensidad base: &e%{_d}%%{_pct}%" and "" and "&e▶ Clic Izquierdo: &7Cambiar Radio (15 | 25 | 35)" and "&b▶ Clic Derecho: &7Ajustar Densidad / Radio"
+    
+    set slot 10 of {_p}'s current inventory to iron pickaxe named "&a&l📦 PACK BÁSICO (INICIO)" with lore "&7Ideal para zonas de nuevos jugadores:" and "&8• &fCarbón + Cobre + Hierro" and "&8• &fRadio: &e%{_r}%m &8| &fDensidad: &e%{_d}%%{_pct}%" and "&a&l> CLIC PARA INYECTAR <"
+    
+    set slot 11 of {_p}'s current inventory to diamond sword named "&4&l⚔ PACK PVP / CLANES" with lore "&7Recursos para guerra y equipamiento:" and "&8• &fHierro + Diamante + Redstone + Oro" and "&8• &fRadio: &e%{_r}%m &8| &fDensidad: &e%{_d}%%{_pct}%" and "&a&l> CLIC PARA INYECTAR <"
+    
+    set slot 12 of {_p}'s current inventory to diamond ore named "&b&l💎 PACK RAREZA (VALIOSOS)" with lore "&7Inyecta minerales de alto valor:" and "&8• &fDiamante + Esmeralda" and "&8• &fRadio: &e%{_r}%m &8| &fDensidad: &e%{_d}%%{_pct}%" and "&a&l> CLIC PARA INYECTAR <"
+    
+    set slot 13 of {_p}'s current inventory to raw gold block named "&6&l🌐 PACK MINERÍA GLOBAL" with lore "&7Mezcla equilibrada de TODOS los minerales:" and "&8• &fCarbón, Hierro, Cobre, Oro, Redstone, Lapis, Diamante" and "&8• &fRadio: &e%{_r}%m &8| &fAjustado a densidad" and "&e&l> CLIC PARA INYECTAR <"
+    
+    set slot 14 of {_p}'s current inventory to ancient debris named "&c&l🔥 PACK NETHER & ANCESTRAL" with lore "&7Tesoros místico y Netherite:" and "&8• &fAncient Debris + Cuarzo + Glowstone" and "&8• &fRadio: &e%{_r}%m &8| &fDensidad: &e%{_d}%%{_pct}%" and "&e&l> CLIC PARA INYECTAR <"
+
+    set slot 16 of {_p}'s current inventory to chest minecart named "&a&l🔍 SELECTOR INDIVIDUAL" with lore "&7Elige &eUN SOLO MINERAL&7 del catálogo" and "&7para inyecciones específicas." and "&a&l▶ CLIC PARA ABRIR CATÁLOGO"
+
+function abrirSelectorMinerales(p: player):
+    set {_u} to uuid of {_p}
+    set {_r} to {ore_radius::%{_u}%}
+    set {_d} to {ore_density::%{_u}%}
+    set {_pct} to "%%"
+
+    open a new chest inventory with 4 rows named "&8&l⛏ &a&lSELECTOR INDIVIDUAL" to {_p}
+    
+    loop integers between 0 and 8:
+        set slot loop-value of {_p}'s current inventory to gray stained glass pane named "&7"
+    loop integers between 27 and 35:
+        set slot loop-value of {_p}'s current inventory to gray stained glass pane named "&7"
+
+    set slot 10 of {_p}'s current inventory to ancient debris named "&dAncient Debris" with lore "&7Radio: &e%{_r}%m &8| &7Densidad: &e%{_d}%%{_pct}%" and "&a▶ Clic para inyectar"
+    set slot 11 of {_p}'s current inventory to diamond ore named "&bMineral de Diamante" with lore "&7Radio: &e%{_r}%m &8| &7Densidad: &e%{_d}%%{_pct}%" and "&a▶ Clic para inyectar"
+    set slot 12 of {_p}'s current inventory to emerald ore named "&aMineral de Esmeralda" with lore "&7Radio: &e%{_r}%m &8| &7Densidad: &e%{_d}%%{_pct}%" and "&a▶ Clic para inyectar"
+    set slot 13 of {_p}'s current inventory to gold ore named "&eMineral de Oro" with lore "&7Radio: &e%{_r}%m &8| &7Densidad: &e%{_d}%%{_pct}%" and "&a▶ Clic para inyectar"
+    set slot 14 of {_p}'s current inventory to iron ore named "&fMineral de Hierro" with lore "&7Radio: &e%{_r}%m &8| &7Densidad: &e%{_d}%%{_pct}%" and "&a▶ Clic para inyectar"
+    set slot 15 of {_p}'s current inventory to copper ore named "&cMineral de Cobre" with lore "&7Radio: &e%{_r}%m &8| &7Densidad: &e%{_d}%%{_pct}%" and "&a▶ Clic para inyectar"
+    set slot 16 of {_p}'s current inventory to redstone ore named "&cMineral de Redstone" with lore "&7Radio: &e%{_r}%m &8| &7Densidad: &e%{_d}%%{_pct}%" and "&a▶ Clic para inyectar"
+    
+    set slot 19 of {_p}'s current inventory to lapis ore named "&9Mineral de Lapislázuli" with lore "&7Radio: &e%{_r}%m &8| &7Densidad: &e%{_d}%%{_pct}%" and "&a▶ Clic para inyectar"
+    set slot 20 of {_p}'s current inventory to coal ore named "&8Mineral de Carbón" with lore "&7Radio: &e%{_r}%m &8| &7Densidad: &e%{_d}%%{_pct}%" and "&a▶ Clic para inyectar"
+    set slot 21 of {_p}'s current inventory to nether quartz ore named "&fCuarzo del Nether" with lore "&7Radio: &e%{_r}%m &8| &7Densidad: &e%{_d}%%{_pct}%" and "&a▶ Clic para inyectar"
+    set slot 22 of {_p}'s current inventory to glowstone named "&eGlowstone" with lore "&7Radio: &e%{_r}%m &8| &7Densidad: &e%{_d}%%{_pct}%" and "&a▶ Clic para inyectar"
+
+    set slot 31 of {_p}'s current inventory to arrow named "&c&lVOLVER AL PANEL PRINCIPAL" with lore "&7Regresa al menú anterior."
+
+function abrirMenuAjustesRadio(p: player):
+    set {_u} to uuid of {_p}
+    set {_r} to {ore_radius::%{_u}%}
+    set {_d} to {ore_density::%{_u}%}
+    set {_pct} to "%%"
+
+    open a new chest inventory with 3 rows named "&8&l📐 &e&lAJUSTES DE RADIO Y DENSIDAD" to {_p}
+
+    loop integers between 0 and 26:
+        set slot loop-value of {_p}'s current inventory to gray stained glass pane named "&7"
+
+    set slot 10 of {_p}'s current inventory to red concrete named "&c-5 Radio" with lore "&7Restar 5 bloques al rango"
+    set slot 11 of {_p}'s current inventory to compass named "&eRadio Actual: &f%{_r}% bloques" with lore "&7Máximo recomendado: 35 bloques"
+    set slot 12 of {_p}'s current inventory to green concrete named "&a+5 Radio" with lore "&7Sumar 5 bloques al rango (Máx 35)"
+
+    set slot 14 of {_p}'s current inventory to red concrete named "&c-0.10 Porcentaje" with lore "&7Reducir densidad"
+    set slot 15 of {_p}'s current inventory to repeater named "&eDensidad Actual: &f%{_d}%%{_pct}%" with lore "&7Afecta a la frecuencia de vetas"
+    set slot 16 of {_p}'s current inventory to green concrete named "&a+0.10 Porcentaje" with lore "&7Aumentar densidad"
+
+    set slot 22 of {_p}'s current inventory to barrier named "&c&lVOLVER AL MENÚ" with lore "&7Regresar al panel principal"
+
+# =====================================================================
+# 3. CONTROLADOR DE CLICS
+# =====================================================================
+on inventory click:
+    if name of event-inventory is "&8&l⛏ &a&lREGENERADOR DE MINERALES":
+        cancel event
+        set {_u} to uuid of player
+        set {_r} to {ore_radius::%{_u}%}
+        set {_d} to {ore_density::%{_u}%}
+        set {_pct} to "%%"
+
+        if index of clicked slot is 4:
+            if click type is left mouse button:
+                if {_r} is 15:
+                    set {ore_radius::%{_u}%} to 25
+                else if {_r} is 25:
+                    set {ore_radius::%{_u}%} to 35
+                else:
+                    set {ore_radius::%{_u}%} to 15
+                play sound "{@sound_config}" with volume 1 and pitch 1.5 to player
+                abrirPanelMinerales(player)
+            else if click type is right mouse button:
+                play sound "{@sound_click}" with volume 1 and pitch 1 to player
+                abrirMenuAjustesRadio(player)
+
+        # PACK BÁSICO (Carbón, Cobre, Hierro)
+        else if index of clicked slot is 10:
+            close player's inventory
+            set {_rem} to 100 - ({_d} * 3)
+            execute player command "//replacenear %{_r}% stone %{_rem}%%{_pct}%stone,%{_d}%%{_pct}%coal_ore,%{_d}%%{_pct}%copper_ore,%{_d}%%{_pct}%iron_ore"
+            execute player command "//replacenear %{_r}% deepslate %{_rem}%%{_pct}%deepslate,%{_d}%%{_pct}%coal_ore,%{_d}%%{_pct}%copper_ore,%{_d}%%{_pct}%iron_ore"
+            notificarExito(player, "Pack Básico (Inicio)", {_r}, "%{_d}%")
+
+        # PACK PVP / CLANES (Hierro, Diamante, Redstone, Oro)
+        else if index of clicked slot is 11:
+            close player's inventory
+            set {_rem} to 100 - ({_d} * 4)
+            execute player command "//replacenear %{_r}% stone %{_rem}%%{_pct}%stone,%{_d}%%{_pct}%iron_ore,%{_d}%%{_pct}%diamond_ore,%{_d}%%{_pct}%redstone_ore,%{_d}%%{_pct}%gold_ore"
+            execute player command "//replacenear %{_r}% deepslate %{_rem}%%{_pct}%deepslate,%{_d}%%{_pct}%iron_ore,%{_d}%%{_pct}%diamond_ore,%{_d}%%{_pct}%redstone_ore,%{_d}%%{_pct}%gold_ore"
+            notificarExito(player, "Pack PvP / Clanes", {_r}, "%{_d}%")
+
+        # PACK RAREZA (Diamante + Esmeralda)
+        else if index of clicked slot is 12:
+            close player's inventory
+            set {_rem} to 100 - ({_d} * 2)
+            execute player command "//replacenear %{_r}% stone %{_rem}%%{_pct}%stone,%{_d}%%{_pct}%diamond_ore,%{_d}%%{_pct}%emerald_ore"
+            execute player command "//replacenear %{_r}% deepslate %{_rem}%%{_pct}%deepslate,%{_d}%%{_pct}%diamond_ore,%{_d}%%{_pct}%emerald_ore"
+            notificarExito(player, "Pack Rareza", {_r}, "%{_d}%")
+
+        # PACK MINERÍA GLOBAL (Todos los minerales)
+        else if index of clicked slot is 13:
+            close player's inventory
+            set {_rem} to 100 - ({_d} * 7)
+            execute player command "//replacenear %{_r}% stone %{_rem}%%{_pct}%stone,%{_d}%%{_pct}%coal_ore,%{_d}%%{_pct}%iron_ore,%{_d}%%{_pct}%copper_ore,%{_d}%%{_pct}%gold_ore,%{_d}%%{_pct}%redstone_ore,%{_d}%%{_pct}%lapis_ore,%{_d}%%{_pct}%diamond_ore"
+            execute player command "//replacenear %{_r}% deepslate %{_rem}%%{_pct}%deepslate,%{_d}%%{_pct}%coal_ore,%{_d}%%{_pct}%iron_ore,%{_d}%%{_pct}%copper_ore,%{_d}%%{_pct}%gold_ore,%{_d}%%{_pct}%redstone_ore,%{_d}%%{_pct}%lapis_ore,%{_d}%%{_pct}%diamond_ore"
+            notificarExito(player, "Pack Minería Global", {_r}, "%{_d}%")
+
+        # PACK NETHER & ANCESTRAL (Netherite + Cuarzo + Glowstone)
+        else if index of clicked slot is 14:
+            close player's inventory
+            set {_rem} to 100 - ({_d} * 3)
+            execute player command "//replacenear %{_r}% stone %{_rem}%%{_pct}%stone,%{_d}%%{_pct}%ancient_debris,%{_d}%%{_pct}%nether_quartz_ore,%{_d}%%{_pct}%glowstone"
+            execute player command "//replacenear %{_r}% deepslate %{_rem}%%{_pct}%deepslate,%{_d}%%{_pct}%ancient_debris,%{_d}%%{_pct}%nether_quartz_ore,%{_d}%%{_pct}%glowstone"
+            execute player command "//replacenear %{_r}% netherrack %{_rem}%%{_pct}%netherrack,%{_d}%%{_pct}%ancient_debris,%{_d}%%{_pct}%nether_quartz_ore,%{_d}%%{_pct}%glowstone"
+            notificarExito(player, "Pack Nether & Ancestral", {_r}, "%{_d}%")
+
+        else if index of clicked slot is 16:
+            play sound "{@sound_click}" with volume 1 and pitch 1 to player
+            abrirSelectorMinerales(player)
+
+    else if name of event-inventory is "&8&l⛏ &a&lSELECTOR INDIVIDUAL":
+        cancel event
+        set {_u} to uuid of player
+        set {_r} to {ore_radius::%{_u}%}
+        set {_d} to {ore_density::%{_u}%}
+        set {_slot} to index of clicked slot
+
+        if {_slot} is 31:
+            play sound "{@sound_click}" with volume 1 and pitch 1 to player
+            abrirPanelMinerales(player)
+            stop
+
+        close player's inventory
+
+        if {_slot} is 10:
+            ejecutarInyeccionWorldEdit(player, "stone,deepslate,netherrack", "ancient_debris", "Ancient Debris", {_r}, {_d})
+        else if {_slot} is 11:
+            ejecutarInyeccionWorldEdit(player, "stone,deepslate", "diamond_ore", "Diamante", {_r}, {_d})
+        else if {_slot} is 12:
+            ejecutarInyeccionWorldEdit(player, "stone,deepslate", "emerald_ore", "Esmeralda", {_r}, {_d})
+        else if {_slot} is 13:
+            ejecutarInyeccionWorldEdit(player, "stone,deepslate", "gold_ore", "Oro", {_r}, {_d})
+        else if {_slot} is 14:
+            ejecutarInyeccionWorldEdit(player, "stone,deepslate", "iron_ore", "Hierro", {_r}, {_d})
+        else if {_slot} is 15:
+            ejecutarInyeccionWorldEdit(player, "stone,deepslate", "copper_ore", "Cobre", {_r}, {_d})
+        else if {_slot} is 16:
+            ejecutarInyeccionWorldEdit(player, "stone,deepslate", "redstone_ore", "Redstone", {_r}, {_d})
+        else if {_slot} is 19:
+            ejecutarInyeccionWorldEdit(player, "stone,deepslate", "lapis_ore", "Lapislázuli", {_r}, {_d})
+        else if {_slot} is 20:
+            ejecutarInyeccionWorldEdit(player, "stone,deepslate", "coal_ore", "Carbón", {_r}, {_d})
+        else if {_slot} is 21:
+            ejecutarInyeccionWorldEdit(player, "stone,deepslate,netherrack", "nether_quartz_ore", "Cuarzo", {_r}, {_d})
+        else if {_slot} is 22:
+            ejecutarInyeccionWorldEdit(player, "stone,deepslate", "glowstone", "Piedra Luminosa (Glowstone)", {_r}, {_d})
+
+    else if name of event-inventory is "&8&l📐 &e&lAJUSTES DE RADIO Y DENSIDAD":
+        cancel event
+        set {_u} to uuid of player
+        set {_slot} to index of clicked slot
+
+        if {_slot} is 10:
+            if {ore_radius::%{_u}%} > 5:
+                remove 5 from {ore_radius::%{_u}%}
+        else if {_slot} is 12:
+            if {ore_radius::%{_u}%} < 35:
+                add 5 to {ore_radius::%{_u}%}
+        else if {_slot} is 14:
+            if {ore_density::%{_u}%} > 0.05:
+                set {ore_density::%{_u}%} to {ore_density::%{_u}%} - 0.10
+        else if {_slot} is 16:
+            if {ore_density::%{_u}%} < 3.00:
+                set {ore_density::%{_u}%} to {ore_density::%{_u}%} + 0.10
+        else if {_slot} is 22:
+            play sound "{@sound_click}" with volume 1 and pitch 1 to player
+            abrirPanelMinerales(player)
+            stop
+
+        play sound "{@sound_config}" with volume 1 and pitch 1.2 to player
+        abrirMenuAjustesRadio(player)
+
+# =====================================================================
+# 4. FUNCIONES AUXILIARES (SINTAXIS NATIVA WORLDEDIT)
+# =====================================================================
+function ejecutarInyeccionWorldEdit(p: player, target: text, ore: text, nombre: text, r: integer, d: number):
+    if {_r} > 35:
+        set {_r} to 35
+    
+    set {_pct} to "%%"
+    set {_rem} to 100 - {_d}
+    set {_targets::*} to {_target} split at ","
+    
+    loop {_targets::*}:
+        set {_b} to loop-value
+        set {_pattern} to "%{_rem}%%{_pct}%%{_b}%,%{_d}%%{_pct}%%{_ore}%"
+        execute {_p} command "//replacenear %{_r}% %{_b}% %{_pattern}%"
+    
+    notificarExito({_p}, {_nombre}, {_r}, "%{_d}%")
+
+function notificarExito(p: player, nombre: text, r: integer, d: text):
+    set {_pct} to "%%"
+    send "{@prefix} &a&lINYECCIÓN COMPLETADA CON ÉXITO" to {_p}
+    send " &7• Paquete/Mineral: &e%{_nombre}%" to {_p}
+    send " &7• Radio: &b%{_r}% bloques alrededor" to {_p}
+    send " &7• Densidad aplicada: &d%{_d}%%{_pct}%" to {_p}
+    
+    send action bar "&a✔ OreInjector: &fInyectado &e%{_nombre}% &fen &b%{_r}%m" to {_p}
+    send title "&a&lMINERALES GENERADOS" with subtitle "&7Se han regenerado las vetas de &e%{_nombre}%" to {_p} for 3 seconds
+    play sound "{@sound_exec}" with volume 1 and pitch 1.2 to {_p}
+
+# =====================================================================
+# 5. DROPS DE ALQUIMIA EN MUNDO ANTIGUO (ANTI-GRANJAS AFK)
+# =====================================================================
+on death:
+    if victim is in world "{@world_antiguo}":
+        if attacker is a player:
+            if damage cause is entity attack or projectile:
+
+                if victim is a witch:
+                    chance of 12%:
+                        drop 1 blaze rod at victim's location
+                        send action bar "&e⚡ ¡Drop Raro! Obtuviste una Vara de Blaze de la Bruja" to attacker
+                    chance of 20%:
+                        drop 2 glowstone dust at victim's location
+
+                else if victim is a zombie or a skeleton:
+                    chance of 1%:
+                        drop 1 blaze rod at victim's location
+                        send action bar "&e⚡ ¡Increíble! Obtuviste una Vara de Blaze" to attacker
+                    chance of 5%:
+                        set {_cant} to random integer between 1 and 2
+                        drop {_cant} of glowstone dust at victim's location
+
+                else if victim is a spider or cave spider:
+                    chance of 3%:
+                        drop 1 nether wart at victim's location
+                        send action bar "&c🧪 ¡Drop Alquímico! Obtuviste Verruga del Nether" to attacker
+
+                else if victim is a phantom or an enderman:
+                    chance of 2%:
+                        drop 1 ghast tear at victim's location
+                        send action bar "&f💧 ¡Drop Místico! Obtuviste una Lágrima de Ghast" to attacker
+
+# =====================================================================
+# 6. REGISTRO Y CRAFTEO NATIVO
+# =====================================================================
+on craft:
+    if event-item is a brewing stand:
+        send "&5🔮 ¡Felicidades! Has conseguido los materiales y creado un Soporte de Pociones." to player
+
+on inventory click:
+    if type of player's top inventory is workbench inventory:
+        wait 1 tick
+        set {_inv} to player's top inventory
+        if slot 5 of {_inv} is blaze rod:
+            if slot 1 of {_inv} is air:
+                if slot 2 of {_inv} is air:
+                    if slot 3 of {_inv} is air:
+                        if slot 4 of {_inv} is air:
+                            if slot 6 of {_inv} is air:
+                                set {_b7} to type of slot 7 of {_inv}
+                                set {_b8} to type of slot 8 of {_inv}
+                                set {_b9} to type of slot 9 of {_inv}
+                                if {_b7} is stone or deepslate or cobbled deepslate or cobblestone:
+                                    if {_b8} is stone or deepslate or cobbled deepslate or cobblestone:
+                                        if {_b9} is stone or deepslate or cobbled deepslate or cobblestone:
+                                            if slot 0 of {_inv} is air:
+                                                set slot 0 of {_inv} to 1 brewing stand

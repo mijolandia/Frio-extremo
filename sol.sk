@@ -1,0 +1,726 @@
+# ==============================================================================
+#   SISTEMA DE RADIACIÓN SOLAR v14.4 (FIX COOLDOWN + CONSOLA RELOAD + 5 CRAFTEOS)
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. FUNCIONES AUXILIARES Y ANUNCIOS EXCLUSIVOS DE "world"
+# ------------------------------------------------------------------------------
+function anunciarMundo(msg: text):
+    send formatted {_msg} to all players in world "world"
+
+on script load:
+    reiniciarTodoElSistema()
+
+function reiniciarTodoElSistema():
+    set {luz::sistema_habilitado} to false
+    set {luz::evento_activo} to false
+    set {luz::en_gracia} to false
+    set {luz::caos_dia26_activo} to false
+    set {luz::dia_actual_evento} to 0
+    delete {luz::muerio_en_evento::*}
+    loop players in world "world":
+        eliminarBossBars(loop-player)
+        clear metadata tag "calor_acumulado" of loop-player
+        clear metadata tag "proteccion_crema" of loop-player
+        clear metadata tag "pocion_penumbra" of loop-player
+        clear metadata tag "dano_radiacion" of loop-player
+
+# ------------------------------------------------------------------------------
+# 2. COMANDO DE RECARGA DIRECTA (COMPATIBLE CON CONSOLA)
+# ------------------------------------------------------------------------------
+command /sol [<text>]:
+    permission: admin.luz
+    permission message: &cNo tienes permiso para gestionar la radiación solar.
+    trigger:
+        if arg-1 is "reload" or "recargar":
+            execute console command "sk reload Semi-plugins/sol.sk"
+            send "&a&l[☀️ Sol] &7Script recargado exitosamente." to sender
+        else:
+            send "&eUso: &f/sol reload &7- Recarga el script del sol." to sender
+
+# ------------------------------------------------------------------------------
+# 3. GESTIÓN DE BOSSBARS Y LIMPIEZA
+# ------------------------------------------------------------------------------
+function actualizarBossBarEstado(p: player):
+    if world of {_p} is not "world":
+        eliminarBossBars({_p})
+        stop
+    
+    if {luz::sistema_habilitado} is false:
+        eliminarBossBars({_p})
+        stop
+    if {luz::evento_activo} is false:
+        if {luz::en_gracia} is false:
+            eliminarBossBars({_p})
+            stop
+
+    set {_id} to "estado_sol_%uuid of {_p}%"
+    set {_bar} to bossbar with id {_id}
+    if {_bar} is not set:
+        set {_bar} to bossbar with id {_id} with title formatted "&a☀️ ESTADO: SEGURO &7(Es seguro salir)"
+        set bossbar color of {_bar} to green
+        set bossbar style of {_bar} to solid bar
+        set bossbar progress of {_bar} to 100
+        add {_p} to bossbar players of {_bar}
+
+function eliminarBossBars(p: player):
+    set {_id1} to "estado_sol_%uuid of {_p}%"
+    set {_id2} to "radiacion_directa_%uuid of {_p}%"
+    set {_id3} to "crema_%uuid of {_p}%"
+    if bossbar with id {_id1} is set:
+        remove {_p} from bossbar players of bossbar with id {_id1}
+        delete bossbar with id {_id1}
+    if bossbar with id {_id2} is set:
+        remove {_p} from bossbar players of bossbar with id {_id2}
+        delete bossbar with id {_id2}
+    if bossbar with id {_id3} is set:
+        remove {_p} from bossbar players of bossbar with id {_id3}
+        delete bossbar with id {_id3}
+
+function purgaEmergenciaBossBars():
+    loop all players:
+        eliminarBossBars(loop-player)
+
+on join:
+    if {luz::sistema_habilitado} is true:
+        if world of player is "world":
+            if {luz::evento_activo} is true:
+                actualizarBossBarEstado(player)
+                procesarRadiacionSolar(player)
+            else if {luz::en_gracia} is true:
+                actualizarBossBarEstado(player)
+    else:
+        eliminarBossBars(player)
+
+on quit:
+    eliminarBossBars(player)
+
+on world change:
+    if world of player is "world":
+        if {luz::sistema_habilitado} is true:
+            if {luz::evento_activo} is true:
+                actualizarBossBarEstado(player)
+                procesarRadiacionSolar(player)
+            else if {luz::en_gracia} is true:
+                actualizarBossBarEstado(player)
+        else:
+            eliminarBossBars(player)
+    else:
+        eliminarBossBars(player)
+        clear metadata tag "calor_acumulado" of player
+
+# ------------------------------------------------------------------------------
+# 4. PROTECCIÓN AL REAPARECER
+# ------------------------------------------------------------------------------
+on respawn:
+    if {luz::sistema_habilitado} is true:
+        if world of player is "world":
+            if {luz::evento_activo} is true:
+                actualizarBossBarEstado(player)
+                activarBossBarBloqueador(player, 30)
+
+# ------------------------------------------------------------------------------
+# 5. CONTROL Y AVANCE DEL EVENTO POR DÍA
+# ------------------------------------------------------------------------------
+function avanzarDiaEvento():
+    if {luz::sistema_habilitado} is false:
+        stop
+    if {luz::evento_activo} is false:
+        if {luz::en_gracia} is false:
+            stop
+
+    if {luz::en_gracia} is true:
+        set {luz::en_gracia} to false
+        set {luz::evento_activo} to true
+        set {luz::dia_actual_evento} to 1
+    else if {luz::evento_activo} is true:
+        if {luz::dia_actual_evento} < 26:
+            add 1 to {luz::dia_actual_evento}
+
+    if {luz::dia_actual_evento} is 26:
+        iniciarCaosDia26()
+        stop
+    if {luz::dia_actual_evento} > 26:
+        finalizarEventoExitoso()
+        stop
+
+    if {luz::dia_actual_evento} is 21:
+        anunciarMundo("")
+        anunciarMundo("&4&l[☠️] ¡DÍA 21: RADIACIÓN LETAL INSTANTÁNEA!")
+        anunciarMundo("&cEl sol alcanza temperaturas de plasma. &4¡EXPOSICIÓN DIRECTA AL SOL = INSTAKILL!")
+        anunciarMundo("")
+        play sound "entity.wither.death" with volume 1 with pitch 0.5 to players in world "world"
+    else if {luz::dia_actual_evento} <= 20:
+        anunciarMundo("")
+        anunciarMundo("&c&l[☀️] DÍA %{luz::dia_actual_evento}%/26 DE RADIACIÓN SOLAR")
+        anunciarMundo("&7La temperatura solar aumenta. Tapar ventanas y cubrir tu base es vital.")
+        anunciarMundo("")
+        play sound "entity.wither.ambient" with volume 0.8 to players in world "world"
+
+    loop players in world "world":
+        delete bossbar with id "radiacion_directa_%uuid of loop-player%"
+        clear metadata tag "calor_acumulado" of loop-player
+        procesarRadiacionSolar(loop-player)
+
+function iniciarCaosDia26():
+    set {luz::caos_dia26_activo} to true
+    anunciarMundo("")
+    anunciarMundo("&8&l[🌑] ¡DÍA 26: CAOS Y EXTINCIÓN FINAL!")
+    anunciarMundo("&4La atmósfera colapsó por completo. La protección ya no importa.")
+    anunciarMundo("&c¡Salud reducida a 1 corazón! Sobrevive 60 segundos para superar el apocalipsis.")
+    anunciarMundo("")
+    play sound "ambient.nether_wastes.mood" with volume 2 with pitch 0.5 to players in world "world"
+    set {_tiempo_caos} to 60
+    loop 60 times:
+        if {luz::sistema_habilitado} is false:
+            set {luz::caos_dia26_activo} to false
+            stop
+        set {_seg} to {_tiempo_caos} - loop-number + 1
+        set {_prog} to ({_seg} / 60) * 100
+        loop players in world "world":
+            if gamemode of loop-player is survival or adventure:
+                if health of loop-player > 1:
+                    set health of loop-player to 1
+                play sound "entity.wither.hurt" with pitch 0.5 to loop-player
+                make 8 of ash at location 1 block above loop-player
+                make 3 of flame at location 1 block above loop-player
+            set {_bar_estado} to bossbar with id "estado_sol_%uuid of loop-player%"
+            if {_bar_estado} is set:
+                set bossbar title of {_bar_estado} to formatted "&4&l☠️ DÍA 26: CAOS FINAL &7(Resiste: %{_seg}%s)"
+                set bossbar color of {_bar_estado} to purple
+                set bossbar progress of {_bar_estado} to {_prog}
+        wait 1 second
+    set {luz::caos_dia26_activo} to false
+    finalizarEventoExitoso()
+
+function finalizarEventoExitoso():
+    anunciarMundo("")
+    anunciarMundo("&a&l[☀️] ¡EL APOCALIPSIS SOLAR HA FINALIZADO!")
+    anunciarMundo("&7La atmósfera se ha estabilizado. La radiación ha desaparecido.")
+    anunciarMundo("")
+    set {_sobrevivientes_impecables::*} to clear
+    loop players in world "world":
+        heal loop-player
+        add 1 to {luz::stats::sobrevivido::%uuid of loop-player%}
+        if {luz::muerio_en_evento::%uuid of loop-player%} is not set:
+            add name of loop-player to {_sobrevivientes_impecables::*}
+            add 1 to {luz::stats::sobrevivido_perfecto::%uuid of loop-player%}
+        play sound "ui.toast.challenge_complete" to loop-player
+    if size of {_sobrevivientes_impecables::*} > 0:
+        set {_lista_txt} to join {_sobrevivientes_impecables::*} with "&7, &e"
+        anunciarMundo("&a&l🏆 SOBREVIVIENTES IMPECABLES (0 MUERTES POR SOL O MOBS):")
+        anunciarMundo("&e%{_lista_txt}%")
+        anunciarMundo("")
+    else:
+        anunciarMundo("&c&l💀 Ningún jugador logró sobrevivir con 0 muertes durante el evento.")
+        anunciarMundo("")
+    reiniciarTodoElSistema()
+
+at 06:00 in world "world":
+    if {luz::sistema_habilitado} is true:
+        if {luz::evento_activo} is true:
+            avanzarDiaEvento()
+
+# ------------------------------------------------------------------------------
+# 6. DETECCIÓN DE COMANDOS /DAY, /NIGHT Y CAMBIOS DE TIEMPO
+# ------------------------------------------------------------------------------
+on command:
+    if {luz::sistema_habilitado} is true:
+        if {luz::evento_activo} is true:
+            set {_cmd} to full command
+            if {_cmd} starts with "day" or "minecraft:day":
+                wait 1 tick
+                avanzarDiaEvento()
+            else if {_cmd} starts with "night" or "minecraft:night":
+                wait 1 tick
+                anunciarMundo("&a&l[☀️ Sol] &7Ha caído la noche. &a¡Protégete del frío nocturno sosteniendo una antorcha!")
+            else if {_cmd} starts with "time" or "minecraft:time":
+                if {_cmd} contains "set day" or "set 0" or "set 1000" or "set start":
+                    wait 1 tick
+                    avanzarDiaEvento()
+                else if {_cmd} contains "set night" or "set 13000" or "set 18000" or "set midnight":
+                    wait 1 tick
+                    anunciarMundo("&a&l[☀️ Sol] &7Ha caído la noche. &a¡Protégete del frío nocturno sosteniendo una antorcha!")
+
+# ------------------------------------------------------------------------------
+# 7. FASE DE PREPARACIÓN Y REGLAS
+# ------------------------------------------------------------------------------
+function anunciarReglasAdmin(p: player):
+    anunciarMundo("")
+    anunciarMundo("&4&l[🚨 ALERTA ADMINISTRATIVA]")
+    anunciarMundo("&eEl administrador &c%name of {_p}% &eha activado el &c&lAPOCALIPSIS SOLAR&e.")
+    anunciarMundo("&a¡Tienen 1 día entero de Minecraft (20m) para construir su refugio antes de la radiación!")
+    anunciarMundo("")
+    anunciarMundo("&6&l📜 REGLAS Y CONSEJOS DE SUPERVIVENCIA:")
+    anunciarMundo("&71. &fConstruye un techo protector. El sol destruirá la piel de día.")
+    anunciarMundo("&72. &fEn las noches lleva una &eANTORCHA &fen mano para evitar morir congelado.")
+    anunciarMundo("&73. &fDías 21 al 25: Exposición al sol es &4&lINSTAKILL&f.")
+    anunciarMundo("&74. &fDía 26: Sobrevive 60s a &c1 corazón &fal colapso final.")
+    anunciarMundo("&75. &fUsa &e/crafteos &fpara crear ítems protectores.")
+    anunciarMundo("")
+    play sound "entity.ender_dragon.growl" with volume 1 with pitch 1 to players in world "world"
+
+function iniciarFaseGracia():
+    set {luz::sistema_habilitado} to true
+    set {luz::en_gracia} to true
+    set {luz::evento_activo} to false
+    set {luz::dia_actual_evento} to 1
+    delete {luz::muerio_en_evento::*}
+    loop players in world "world":
+        delete bossbar with id "radiacion_directa_%uuid of loop-player%"
+        clear metadata tag "calor_acumulado" of loop-player
+        actualizarBossBarEstado(loop-player)
+    send title "&a&l¡INICIA FASE DE PREPARACIÓN!" with subtitle "&eTienen 1 día entero de MC (20m) para construir su base" to players in world "world" for 5 seconds
+    play sound "entity.wither.spawn" with volume 1 with pitch 0.8 to players in world "world"
+    set {_tiempo_max} to 1200
+    loop {_tiempo_max} times:
+        if {luz::en_gracia} is false:
+            stop
+        if {luz::sistema_habilitado} is false:
+            stop
+        set {_segundos_restantes} to {_tiempo_max} - loop-number + 1
+        set {_progreso} to ({_segundos_restantes} / {_tiempo_max}) * 100
+        set {_min} to floor({_segundos_restantes} / 60)
+        set {_sec} to mod({_segundos_restantes}, 60)
+        if {_sec} < 10:
+            set {_txt_sec} to "0%{_sec}%"
+        else:
+            set {_txt_sec} to "%{_sec}%"
+        if {_progreso} > 50:
+            set {_color_bar} to green
+            set {_color_txt} to "&a⏳ PREPARACIÓN:"
+            set {_sub_txt} to "&7(Construye tu base)"
+        else if {_progreso} > 20:
+            set {_color_bar} to yellow
+            set {_color_txt} to "&e⚠️ PREPARACIÓN DÍA 1 CASI AGOTADA:"
+            set {_sub_txt} to "&7(¡Consigue recursos rápidos!)"
+        else:
+            set {_color_bar} to red
+            set {_color_txt} to "&c🚨 ¡IMPACTO SOLAR INMINENTE!:"
+            set {_sub_txt} to "&7(¡ENTRA A UN REFUGIO YA!)"
+        loop players in world "world":
+            set {_bar_estado} to bossbar with id "estado_sol_%uuid of loop-player%"
+            if {_bar_estado} is set:
+                set bossbar title of {_bar_estado} to formatted "%{_color_txt}% %{_min}%m %{_txt_sec}%s %{_sub_txt}%"
+                set bossbar color of {_bar_estado} to {_color_bar}
+                set bossbar progress of {_bar_estado} to {_progreso}
+        if {_segundos_restantes} <= 10:
+            play sound "block.note_block.hat" with pitch 2 to players in world "world"
+        wait 1 second
+    if {luz::en_gracia} is false:
+        stop
+    if {luz::sistema_habilitado} is false:
+        stop
+    set {luz::en_gracia} to false
+    set {luz::evento_activo} to true
+    anunciarMundo("")
+    anunciarMundo("&4&l[☀️] LA RADIACIÓN SOLAR HA IMPACTADO EL PLANETA")
+    anunciarMundo("&cTapa ventanas y bases. Salir a la luz del sol te carbonizará.")
+    anunciarMundo("")
+    send title "&4&l¡RADIACIÓN ACTIVA!" with subtitle "&cDía 1: Protégete de la luz solar" to players in world "world" for 3 seconds
+
+function desactivarSistemaGlobal():
+    reiniciarTodoElSistema()
+
+# ------------------------------------------------------------------------------
+# 8. BOSSBAR EXCLUSIVA DE PROTECCIÓN DE CREMA
+# ------------------------------------------------------------------------------
+function activarBossBarBloqueador(p: player, duracion: integer):
+    set metadata tag "proteccion_crema" of {_p} to true
+    set {_id} to "crema_%uuid of {_p}%"
+    set {_bar} to bossbar with id {_id} with title formatted "&a🧴 PROTECCIÓN SOLAR: %{_duracion}%s"
+    set bossbar color of {_bar} to green
+    set bossbar style of {_bar} to segmented 6
+    set bossbar progress of {_bar} to 100
+    add {_p} to bossbar players of {_bar}
+    loop {_duracion} times:
+        if {_p} is not online:
+            stop
+        set {_restante} to {_duracion} - loop-number + 1
+        set {_progreso} to ({_restante} / {_duracion}) * 100
+        if {_restante} <= 5:
+            set bossbar color of {_bar} to red
+            set bossbar title of {_bar} to formatted "&c&l⚠️ ¡CREMA EXPIRANDO!: %{_restante}%s"
+            play sound "block.note_block.pling" with pitch 2 to {_p}
+        else if {_restante} <= 15:
+            set bossbar color of {_bar} to yellow
+            set bossbar title of {_bar} to formatted "&e🧴 PROTECCIÓN SOLAR: %{_restante}%s"
+        else:
+            set bossbar color of {_bar} to green
+            set bossbar title of {_bar} to formatted "&a🧴 PROTECCIÓN SOLAR: %{_restante}%s"
+        set bossbar progress of {_bar} to {_progreso}
+        wait 1 second
+    clear metadata tag "proteccion_crema" of {_p}
+    remove {_p} from bossbar players of {_bar}
+    delete bossbar with id {_id}
+    if world of {_p} is "world":
+        send "&c&l[!] &7La protección de la crema solar ha expirado." to {_p}
+
+# ------------------------------------------------------------------------------
+# 9. MOTOR SOLAR Y FRÍO NOCTURNO
+# ------------------------------------------------------------------------------
+on player move:
+    if {luz::sistema_habilitado} is true:
+        if {luz::evento_activo} is true:
+            if world of player is "world":
+                if metadata tag "ultimo_tick_sol" of player is set:
+                    if difference between (metadata tag "ultimo_tick_sol" of player) and now < 1 second:
+                        stop
+                set metadata tag "ultimo_tick_sol" of player to now
+                procesarRadiacionSolar(player)
+
+function procesarRadiacionSolar(p: player):
+    if {luz::sistema_habilitado} is false:
+        eliminarBossBars({_p})
+        stop
+    if {luz::evento_activo} is false:
+        if {luz::en_gracia} is false:
+            eliminarBossBars({_p})
+            stop
+    if world of {_p} is not "world":
+        eliminarBossBars({_p})
+        clear metadata tag "calor_acumulado" of {_p}
+        stop
+
+    actualizarBossBarEstado({_p})
+
+    if {luz::en_gracia} is true:
+        delete bossbar with id "radiacion_directa_%uuid of {_p}%"
+        clear metadata tag "calor_acumulado" of {_p}
+        stop
+
+    set {_t} to time of world "world"
+    set {_es_noche} to false
+    if {_t} is between 18:00 and 06:00:
+        set {_es_noche} to true
+
+    set {_bar_estado} to bossbar with id "estado_sol_%uuid of {_p}%"
+    set {_id_rad} to "radiacion_directa_%uuid of {_p}%"
+    set {_loc} to location of {_p}
+
+    if {_es_noche} is true:
+        if {_bar_estado} is set:
+            set bossbar title of {_bar_estado} to formatted "&a🌙 NOCHE: ZONA SEGURA DEL SOL &7(¡Lleva una antorcha!)"
+            set bossbar color of {_bar_estado} to green
+            set bossbar progress of {_bar_estado} to 100
+        delete bossbar with id {_id_rad}
+        clear metadata tag "calor_acumulado" of {_p}
+        if {luz::evento_activo} is true:
+            if gamemode of {_p} is survival or adventure:
+                set {_m1} to tool of {_p}
+                set {_m2} to offhand tool of {_p}
+                if {_m1} is torch or soul torch or redstone torch or torch named "&e&lAntorcha Térmica":
+                    make 2 of flame at location 1 block above {_loc}
+                else if {_m2} is torch or soul torch or redstone torch or torch named "&e&lAntorcha Térmica":
+                    make 2 of flame at location 1 block above {_loc}
+                else:
+                    apply slowness 2 to {_p} for 2 seconds
+                    make 6 of snowflake at location 1 block above {_loc}
+                    damage {_p} by 1
+                    send action bar "&b&l❄️ ¡TE ESTÁS CONGELANDO! Sostén una antorcha en la mano." to {_p}
+        stop
+
+    if {luz::caos_dia26_activo} is true:
+        stop
+
+    set {_progreso_dias} to ({luz::dia_actual_evento} / 26) * 100
+    if {_bar_estado} is set:
+        if {luz::dia_actual_evento} >= 21:
+            set bossbar title of {_bar_estado} to formatted "&4&l☠️ DÍA %{luz::dia_actual_evento}%/26: INSTAKILL SOLAR &7(Evita la luz solar)"
+            set bossbar color of {_bar_estado} to red
+            set bossbar progress of {_bar_estado} to {_progreso_dias}
+        else:
+            set bossbar title of {_bar_estado} to formatted "&c☀️ DÍA %{luz::dia_actual_evento}%/26: RADIACIÓN ACTIVA &7(Luz solar dañina)"
+            set bossbar color of {_bar_estado} to red
+            set bossbar progress of {_bar_estado} to {_progreso_dias}
+
+    if gamemode of {_p} is creative or spectator:
+        delete bossbar with id {_id_rad}
+        clear metadata tag "calor_acumulado" of {_p}
+        stop
+    if metadata tag "proteccion_crema" of {_p} is set:
+        stop
+    if metadata tag "pocion_penumbra" of {_p} is set:
+        stop
+
+    set {_luz_solar} to skylight level at {_loc}
+    if {_luz_solar} >= 14:
+        if {luz::dia_actual_evento} >= 21:
+            set metadata tag "dano_radiacion" of {_p} to true
+            kill {_p}
+            make 20 of flame at location of {_p}
+            stop
+        if metadata tag "calor_acumulado" of {_p} is not set:
+            set metadata tag "calor_acumulado" of {_p} to 0
+        set {_calor} to metadata tag "calor_acumulado" of {_p}
+        set {_incremento} to 10 + ({luz::dia_actual_evento} * 2)
+        add {_incremento} to {_calor}
+        if {_calor} > 100:
+            set {_calor} to 100
+        set metadata tag "calor_acumulado" of {_p} to {_calor}
+        set {_bar_rad} to bossbar with id {_id_rad}
+        if {_bar_rad} is not set:
+            set {_bar_rad} to bossbar with id {_id_rad} with title formatted "&c☠️ RADIACIÓN DIRECTA: %{_calor}%%%"
+            add {_p} to bossbar players of {_bar_rad}
+        set bossbar title of {_bar_rad} to formatted "&c☠️ EXPUESTO AL SOL: %{_calor}%%% &7(¡BUSCA SOMBRA O TECHO!)"
+        set bossbar color of {_bar_rad} to red
+        set bossbar style of {_bar_rad} to solid bar
+        set bossbar progress of {_bar_rad} to (100 - {_calor})
+        set {_helmet} to helmet of {_p}
+        set {_dano_base} to 1 + ({luz::dia_actual_evento} * 0.4)
+        if {_helmet} is iron helmet named "&6&lCasco Reforzado de Sombra":
+            set {_dano_base} to {_dano_base} * 0.5
+        damage {_p} by {_dano_base}
+        if {_calor} > 60:
+            apply slowness 1 to {_p} for 2 seconds
+            make 4 of flame at location 1 block above {_loc}
+        if {_calor} >= 90:
+            apply nausea 1 to {_p} for 3 seconds
+            ignite {_p} for 2 seconds
+            set metadata tag "dano_radiacion" of {_p} to true
+        stop
+
+    set {_calor} to metadata tag "calor_acumulado" of {_p}
+    if {_calor} is set:
+        if {_calor} > 0:
+            remove 25 from {_calor}
+            if {_calor} <= 0:
+                set {_calor} to 0
+                clear metadata tag "calor_acumulado" of {_p}
+                delete bossbar with id {_id_rad}
+            else:
+                set metadata tag "calor_acumulado" of {_p} to {_calor}
+                set {_bar_rad} to bossbar with id {_id_rad}
+                if {_bar_rad} is set:
+                    set bossbar title of {_bar_rad} to formatted "&a❄️ ENFRIÁNDOTE A SALVO: &a%{_calor}%%%"
+                    set bossbar color of {_bar_rad} to green
+                    set bossbar progress of {_bar_rad} to (100 - {_calor})
+        else:
+            delete bossbar with id {_id_rad}
+    else:
+        delete bossbar with id {_id_rad}
+
+# ------------------------------------------------------------------------------
+# 10. PANEL CONTROL ADMINISTRATIVO EN GUI (/LUZPANEL)
+# ------------------------------------------------------------------------------
+command /luzpanel:
+    aliases: /panelradiacion, /solpanel
+    permission: admin.luz
+    permission message: &cNo tienes permisos para acceder al Panel de Control.
+    trigger:
+        abrirPanelControlAdmin(player)
+
+function abrirPanelControlAdmin(p: player):
+    open chest inventory with 3 rows named "&8&l⚙️ Panel Admin Radiación Solar" to {_p}
+    loop 27 times:
+        set slot (loop-number - 1) of {_p}'s current inventory to gray stained glass pane named " "
+    if {luz::sistema_habilitado} is true:
+        set slot 10 of {_p}'s current inventory to green wool named "&a&lSISTEMA: HABILITADO" with lore "&7Estado actual: &aACTIVADO" and "" and "&e[Clic Izquierdo] &fDesactivar todo el sistema."
+    else:
+        set slot 10 of {_p}'s current inventory to red wool named "&c&lSISTEMA: DESHABILITADO" with lore "&7Estado actual: &cDESACTIVADO" and "" and "&e[Clic Izquierdo] &fActivar el sistema."
+    set slot 12 of {_p}'s current inventory to beacon named "&6&lGESTIÓN DE EVENTO" with lore "&7• Evento Activo: &e%{luz::evento_activo}%" and "&7• En Preparación (20m): &e%{luz::en_gracia}%" and "&7• Día de Evento: &c%{luz::dia_actual_evento}%/26" and "" and "&e[Clic Izquierdo] &fIniciar Evento (Fase Prep 20m)" and "&c[Clic Derecho] &fDetener/Reiniciar Evento actual"
+    set slot 14 of {_p}'s current inventory to clock named "&e&lCAMBIAR DÍA DEL EVENTO" with lore "&7Día actual del evento: &c%{luz::dia_actual_evento}%/26" and "" and "&e[Clic Izquierdo] &f+1 Día (Avanzar)" and "&c[Clic Derecho] &f-1 Día (Retroceder)"
+    set slot 16 of {_p}'s current inventory to chest named "&b&lDAR ÍTEMS DE PROTECCIÓN" with lore "&7Consigue los ítems de prueba para tu inventario." and "" and "&e[Clic Izquierdo] &fRecibir Bloqueador Solar 50+" and "&c[Clic Derecho] &fRecibir Poción de Penumbra"
+    set slot 22 of {_p}'s current inventory to barrier named "&4&l🚨 BOTÓN DE EMERGENCIA: PURGAR BOSSBARS" with lore "&7Elimina forzosamente todas las BossBars" and "&7de todos los jugadores online en este instante." and "" and "&c▶ Clic para ejecutar purga"
+    set slot 26 of {_p}'s current inventory to redstone named "&c&lRECARGAR SCRIPT" with lore "&7Ejecuta el recargo de Skript." and "" and "&e▶ Clic para recargar sol.sk"
+
+on inventory click:
+    if name of event-inventory is "&8&l⚙️ Panel Admin Radiación Solar":
+        cancel event
+        if index of event-slot is 10:
+            if {luz::sistema_habilitado} is true:
+                desactivarSistemaGlobal()
+                send "&c[Panel] Sistema deshabilitado." to player
+            else:
+                set {luz::sistema_habilitado} to true
+                send "&a[Panel] Sistema habilitado." to player
+            abrirPanelControlAdmin(player)
+            play sound "ui.button.click" to player
+        else if index of event-slot is 12:
+            if click type is left mouse button:
+                anunciarReglasAdmin(player)
+                iniciarFaseGracia()
+                send "&a[Panel] Evento iniciado manualmente (Fase Prep)." to player
+            else if click type is right mouse button:
+                reiniciarTodoElSistema()
+                send "&c[Panel] Evento detenido y reiniciado." to player
+            abrirPanelControlAdmin(player)
+            play sound "ui.button.click" to player
+        else if index of event-slot is 14:
+            set {luz::en_gracia} to false
+            set {luz::sistema_habilitado} to true
+            set {luz::evento_activo} to true
+            if click type is left mouse button:
+                if {luz::dia_actual_evento} < 26:
+                    add 1 to {luz::dia_actual_evento}
+                    if {luz::dia_actual_evento} is 0:
+                        set {luz::dia_actual_evento} to 1
+                    send "&e[Panel] Avanzado al Día %{luz::dia_actual_evento}%." to player
+                    anunciarMundo("&c&l[☀️ Sol] &7Un administrador ha cambiado el evento al &c&lDÍA %{luz::dia_actual_evento}%/26&7.")
+                else:
+                    send "&c[Panel] Ya estás en el día máximo (Día 26)." to player
+            else if click type is right mouse button:
+                if {luz::dia_actual_evento} > 1:
+                    remove 1 from {luz::dia_actual_evento}
+                    send "&e[Panel] Retrocedido al Día %{luz::dia_actual_evento}%." to player
+                    anunciarMundo("&e&l[☀️ Sol] &7Un administrador ha cambiado el evento al &c&lDÍA %{luz::dia_actual_evento}%/26&7.")
+                else:
+                    send "&c[Panel] No puedes bajar más allá del Día 1." to player
+            loop players in world "world":
+                delete bossbar with id "radiacion_directa_%uuid of loop-player%"
+                clear metadata tag "calor_acumulado" of loop-player
+                procesarRadiacionSolar(loop-player)
+            abrirPanelControlAdmin(player)
+            play sound "ui.button.click" to player
+        else if index of event-slot is 16:
+            if click type is left mouse button:
+                give honey bottle named "&e&l🧴 Bloqueador Solar 50+" with lore "&7Otorga &e30 segundos &7de protección" and "&7contra la radiación solar." and "" and "&e[Clic Derecho] &fPara consumir." to player
+                send "&a[Panel] Bloqueador entregado." to player
+            else if click type is right mouse button:
+                give honey bottle named "&8&lPoción de Penumbra" with lore "&7Otorga &e60 segundos &7de protección fría" and "&7contra la radiación solar." and "" and "&e[Clic Derecho] &fPara consumir." to player
+                send "&a[Panel] Poción entregada." to player
+            play sound "entity.item.pickup" to player
+        else if index of event-slot is 22:
+            purgaEmergenciaBossBars()
+            send "&c&l[🚨 EMERGENCIA] &7Se han removido y borrado todas las BossBars activas." to player
+            play sound "entity.generic.explode" with volume 0.5 with pitch 1.5 to player
+        else if index of event-slot is 26:
+            close player's inventory
+            execute console command "sk reload Semi-plugins/sol.sk"
+            send "&a[Panel] Script recargado con éxito." to player
+
+# ------------------------------------------------------------------------------
+# 11. LOS 5 CRAFTEOS DE LA MESA DE ALQUIMIA SOLAR (/CRAFTEOS)
+# ------------------------------------------------------------------------------
+command /crafteos:
+    aliases: /recetas, /solcrafteos
+    trigger:
+        abrirMesaCrafteo(player)
+
+function abrirMesaCrafteo(p: player):
+    open chest inventory with 3 rows named "&8&l🧪 Mesa de Alquimia Solar" to {_p}
+    loop 27 times:
+        set slot (loop-number - 1) of {_p}'s current inventory to gray stained glass pane named " "
+    
+    # 1. Bloqueador Solar
+    set slot 10 of {_p}'s current inventory to honey bottle named "&e&l🧴 Bloqueador Solar 50+" with lore "&7Protección contra radiación por &e30s&7." and "" and "&e&l> MATERIALES REQUERIDOS:" and "&8• &f1x Botella de Agua" and "&8• &f2x Crema de Magma" and "&8• &f1x Azúcar" and "" and "&e[Clic] &fPara Fabricar"
+    
+    # 2. Poción de Penumbra
+    set slot 11 of {_p}'s current inventory to honey bottle named "&8&lPoción de Penumbra" with lore "&7Inmunidad solar total por &e60s&7." and "" and "&e&l> MATERIALES REQUERIDOS:" and "&8• &f1x Frasco de Miel" and "&8• &f1x Ojo de Araña Fermentado" and "&8• &f2x Bloque de Carbón" and "" and "&e[Clic] &fPara Fabricar"
+    
+    # 3. Bebida Congelante
+    set slot 13 of {_p}'s current inventory to potion named "&b&l🧊 Bebida Congelante" with lore "&7Elimina instantáneamente todo el calor acumulado." and "" and "&e&l> MATERIALES REQUERIDOS:" and "&8• &f1x Botella de Agua" and "&8• &f2x Hielo" and "&8• &f1x Baya Dulce" and "" and "&e[Clic] &fPara Fabricar"
+    
+    # 4. Casco Reforzado
+    set slot 15 of {_p}'s current inventory to iron helmet named "&6&lCasco Reforzado de Sombra" with lore "&7Reduce el daño por radiación solar a la mitad (50%%)." and "" and "&e&l> MATERIALES REQUERIDOS:" and "&8• &f1x Casco de Hierro" and "&8• &f4x Cuero" and "&8• &f2x Bloque de Carbón" and "" and "&e[Clic] &fPara Fabricar"
+    
+    # 5. Antorcha Térmica (¡5to Crafteo Reincorporado!)
+    set slot 16 of {_p}'s current inventory to torch named "&e&lAntorcha Térmica" with lore "&7Te protege del frío congelante durante las noches." and "" and "&e&l> MATERIALES REQUERIDOS:" and "&8• &f1x Antorcha" and "&8• &f1x Carbón" and "&8• &f2x Polvo de Redstone" and "" and "&e[Clic] &fPara Fabricar"
+
+on inventory click:
+    if name of event-inventory is "&8&l🧪 Mesa de Alquimia Solar":
+        cancel event
+        if index of event-slot is 10:
+            if player has 1 water bottle, 2 magma cream and 1 sugar:
+                remove 1 water bottle from player's inventory
+                remove 2 magma cream from player's inventory
+                remove 1 sugar from player's inventory
+                give honey bottle named "&e&l🧴 Bloqueador Solar 50+" with lore "&7Otorga &e30 segundos &7de protección" and "&7contra la radiación solar." and "" and "&e[Clic Derecho] &fPara consumir." to player
+                send "&a&l[Éxito] &7Has fabricado &e1x Bloqueador Solar 50+&7." to player
+                play sound "item.bottle.fill" to player
+            else:
+                send "&c&l[Error] &7No tienes los materiales necesarios para este crafteo." to player
+                play sound "entity.villager.no" to player
+        else if index of event-slot is 11:
+            if player has 1 honey bottle, 1 fermented spider eye and 2 coal block:
+                remove 1 honey bottle from player's inventory
+                remove 1 fermented spider eye from player's inventory
+                remove 2 coal block from player's inventory
+                give honey bottle named "&8&lPoción de Penumbra" with lore "&7Otorga &e60 segundos &7de protección fría" and "&7contra la radiación solar." and "" and "&e[Clic Derecho] &fPara consumir." to player
+                send "&a&l[Éxito] &7Has fabricado &81x Poción de Penumbra&7." to player
+                play sound "item.bottle.fill" to player
+            else:
+                send "&c&l[Error] &7No tienes los materiales necesarios para este crafteo." to player
+                play sound "entity.villager.no" to player
+        else if index of event-slot is 13:
+            if player has 1 water bottle, 2 ice and 1 sweet berries:
+                remove 1 water bottle from player's inventory
+                remove 2 ice from player's inventory
+                remove 1 sweet berries from player's inventory
+                give potion named "&b&l🧊 Bebida Congelante" with lore "&7Al beberla elimina todo el calor directo." and "" and "&e[Clic Derecho] &fPara consumir." to player
+                send "&a&l[Éxito] &7Has fabricado &b1x Bebida Congelante&7." to player
+                play sound "item.bottle.fill" to player
+            else:
+                send "&c&l[Error] &7No tienes los materiales necesarios para este crafteo." to player
+                play sound "entity.villager.no" to player
+        else if index of event-slot is 15:
+            if player has 1 iron helmet, 4 leather and 2 coal block:
+                remove 1 iron helmet from player's inventory
+                remove 4 leather from player's inventory
+                remove 2 coal block from player's inventory
+                give iron helmet named "&6&lCasco Reforzado de Sombra" with lore "&7Reduce el daño por radiación solar a la mitad (50%%)." to player
+                send "&a&l[Éxito] &7Has fabricado &61x Casco Reforzado de Sombra&7." to player
+                play sound "item.armor.equip_iron" to player
+            else:
+                send "&c&l[Error] &7No tienes los materiales necesarios para este crafteo." to player
+                play sound "entity.villager.no" to player
+        else if index of event-slot is 16:
+            if player has 1 torch, 1 coal and 2 redstone:
+                remove 1 torch from player's inventory
+                remove 1 coal from player's inventory
+                remove 2 redstone from player's inventory
+                give torch named "&e&lAntorcha Térmica" with lore "&7Te protege del frío congelante durante las noches." to player
+                send "&a&l[Éxito] &7Has fabricado &e1x Antorcha Térmica&7." to player
+                play sound "item.firecharge.use" to player
+            else:
+                send "&c&l[Error] &7No tienes los materiales necesarios para este crafteo." to player
+                play sound "entity.villager.no" to player
+
+# ------------------------------------------------------------------------------
+# 12. USO DE CONSUMIBLES Y EVENTOS
+# ------------------------------------------------------------------------------
+on rightclick holding honey bottle or potion:
+    if name of event-item is "&e&l🧴 Bloqueador Solar 50+":
+        cancel event
+        set {_mismain} to tool of player
+        remove 1 of {_mismain} from player's inventory
+        give glass bottle to player
+        if {luz::cooldown_crema::%uuid of player%} is set:
+            set {_diff} to difference between {luz::cooldown_crema::%uuid of player%} and now
+            set {_segundos} to seconds of {_diff}
+            if {_segundos} < 30:
+                set {_restante} to 30 - {_segundos}
+                send "&c&l[!] &7Debes esperar %{_restante}%s &7para usar otra." to player
+                stop
+        
+        set {luz::cooldown_crema::%uuid of player%} to now
+        play sound "item.armor.equip_leather" to player
+        activarBossBarBloqueador(player, 30)
+
+    else if name of event-item is "&8&lPoción de Penumbra":
+        cancel event
+        set {_mismain} to tool of player
+        remove 1 of {_mismain} from player's inventory
+        give glass bottle to player
+        send "&8&l[Penumbra] &7Capa de penumbra activa por 60 segundos." to player
+        set metadata tag "pocion_penumbra" of player to true
+        play sound "item.armor.equip_leather" to player
+        wait 60 seconds
+        clear metadata tag "pocion_penumbra" of player
+        send "&c&l[Penumbra] &7La protección de la penumbra ha terminado." to player
+
+on consume of any potion:
+    if name of event-item is "&b&l🧊 Bebida Congelante":
+        clear metadata tag "calor_acumulado" of player
+        set {_id_rad} to "radiacion_directa_%uuid of player%"
+        delete bossbar with id {_id_rad}
+        send "&b&l[Refresco] &7¡Tu cuerpo se ha enfriado completamente!" to player
+        play sound "entity.player.splash" to player
+
+on death of player:
+    if {luz::sistema_habilitado} is true:
+        if {luz::evento_activo} is true:
+            set {luz::muerio_en_evento::%uuid of victim%} to true
+            
+        if metadata tag "dano_radiacion" of victim is set:
+            clear metadata tag "dano_radiacion" of victim

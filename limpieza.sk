@@ -1,0 +1,402 @@
+# ==============================================================================
+#
+#     ██╗     ██╗███╗   ███╗██████╗ ██╗ █████╗ ██████╗  ██████╗ ██████╗ 
+#     ██║     ██║████╗ ████║██╔══██╗██║██╔══██╗██╔══██╗██╔═══██╗██╔══██╗
+#     ██║     ██║██╔████╔██║██████╔╝██║███████║██║  ██║██║   ██║██████╔╝
+#     ██║     ██║██║╚██╔╝██║██╔═══╝ ██║██╔══██║██║  ██║██║   ██║██╔══██╗
+#     ███████╗██║██║ ╚═╝ ██║██║     ██║██║  ██║██████╔╝╚██████╔╝██║  ██║
+#     ╚══════╝╚═╝╚═╝     ╚═╝╚═╝     ╚═╝╚═╝  ╚═╝╚═════╝  ╚═════╝ ╚═╝  ╚═╝
+#
+#                SISTEMA DE LIMPIEZA INTELIGENTE Y PURGA DE LAG
+#                Author: NatureLand Team (Mignone & Mine)
+#                Version: 3.0.2-AUTO-CLEAN-PRO (SkBee Optimized & Fixed)
+#
+# ==============================================================================
+
+options:
+    prefix: &8[&bLimpiador&8] &7»
+    perm_usar: natureland.limpiar.usar
+    perm_programar: natureland.limpiar.programar
+    perm_emergencia: natureland.limpiar.emergencia
+    perm_cancelar: natureland.limpiar.cancelar
+    perm_admin: natureland.limpiar.admin
+    titulo_panel: &8» &c&lPanel de Limpieza &8«
+    titulo_config: &8» &b&lConfiguración &8«
+
+# ---------------------------------------------------------------------
+# INICIALIZACIÓN
+# ---------------------------------------------------------------------
+on load:
+    send "&8[&bLimpiador&8] &7Cargando módulos de limpieza..." to console
+    send "&8[&bLimpiador&8] &a¡Sistema Safe-Clean PRO inicializado correctamente!" to console
+    send "&8[&bLimpiador&8] &eNatureLand Team - v3.0.2" to console
+    clear {limpieza::en_progreso}
+
+    # Valores por defecto
+    if {limpieza::config::sonidos} is not set:
+        set {limpieza::config::sonidos} to true
+    if {limpieza::config::auto_activo} is not set:
+        set {limpieza::config::auto_activo} to true
+    if {limpieza::config::intervalo_auto} is not set:
+        set {limpieza::config::intervalo_auto} to 120
+    set {limpieza::contador_auto} to 0
+
+# ---------------------------------------------------------------------
+# FUNCIÓN: PURGA REAL
+# ---------------------------------------------------------------------
+function purgarEntidades() :: number:
+    set {_count} to 0
+
+    loop all dropped items in all worlds:
+        if {limpieza::config::mundos_excluidos::*} does not contain world of loop-entity:
+            add 1 to {_count}
+            delete loop-entity
+
+    loop all arrows in all worlds:
+        if {limpieza::config::mundos_excluidos::*} does not contain world of loop-entity:
+            add 1 to {_count}
+            delete loop-entity
+
+    loop all tridents in all worlds:
+        if {limpieza::config::mundos_excluidos::*} does not contain world of loop-entity:
+            add 1 to {_count}
+            delete loop-entity
+
+    loop all experience orbs in all worlds:
+        if {limpieza::config::mundos_excluidos::*} does not contain world of loop-entity:
+            add 1 to {_count}
+            delete loop-entity
+
+    return {_count}
+
+# ---------------------------------------------------------------------
+# FUNCIÓN: HISTORIAL REPARADO
+# ---------------------------------------------------------------------
+function registrarHistorial(autor: text, cantidad: number):
+    set {_hora} to now formatted as "HH:mm"
+    set {_linea} to "&7[&f%{_hora}%&7] &b%{_autor}% &7» &a%{_cantidad}% &7entidades"
+
+    set {_temp::1} to {_linea}
+    set {_index} to 2
+    loop {limpieza::historial::*}:
+        set {_temp::%{_index}%} to loop-value
+        add 1 to {_index}
+        
+    set {limpieza::historial::*} to {_temp::*}
+    
+    if size of {limpieza::historial::*} > 5:
+        delete {limpieza::historial::6}
+
+# ---------------------------------------------------------------------
+# FUNCIÓN: ANUNCIOS
+# ---------------------------------------------------------------------
+function anunciar(mensaje: text, sonido: text):
+    broadcast "{@prefix} %{_mensaje}%"
+    if {limpieza::config::sonidos} is true:
+        play sound {_sonido} to all players
+
+# ---------------------------------------------------------------------
+# COMANDOS
+# ---------------------------------------------------------------------
+command /limpiador [<text>] [<text>] [<text>]:
+    permission: {@perm_usar}
+    permission message: {@prefix} &cNo tienes permiso para usar este comando.
+    trigger:
+        if arg-1 is not set:
+            abrirPanelLimpiador(player)
+            stop
+
+        if arg-1 is "purgar":
+            if player has permission "{@perm_emergencia}":
+                ejecutarPurgaInmediata(player)
+            else:
+                send "{@prefix} &cNo tienes permiso para la purga de emergencia." to player
+            stop
+
+        if arg-1 is "cancelar":
+            if player has permission "{@perm_cancelar}":
+                cancelarLimpieza(player)
+            else:
+                send "{@prefix} &cNo tienes permiso para cancelar." to player
+            stop
+
+        if arg-1 is "programar":
+            if player has permission "{@perm_programar}":
+                if arg-2 is not set:
+                    send "{@prefix} &cUso: /limpiador programar <minutos>" to player
+                    stop
+                set {_minutos} to arg-2 parsed as number
+                if {_minutos} is not set:
+                    send "{@prefix} &c'%arg-2%' no es un número válido." to player
+                    stop
+                if {_minutos} is not between 1 and 60:
+                    send "{@prefix} &cEl tiempo debe estar entre 1 y 60 minutos." to player
+                    stop
+                if {limpieza::en_progreso} is true:
+                    send "{@prefix} &cYa hay una limpieza en curso." to player
+                    stop
+                programarLimpieza(player's name, {_minutos})
+            else:
+                send "{@prefix} &cNo tienes permiso para programar." to player
+            stop
+
+        if arg-1 is "config":
+            if player does not have permission "{@perm_admin}":
+                send "{@prefix} &cNo tienes permiso para configurar." to player
+                stop
+            if arg-2 is "sonido":
+                if arg-3 is "on":
+                    set {limpieza::config::sonidos} to true
+                    send "{@prefix} &aSonidos activados." to player
+                else if arg-3 is "off":
+                    set {limpieza::config::sonidos} to false
+                    send "{@prefix} &cSonidos desactivados." to player
+                stop
+            if arg-2 is "auto":
+                if arg-3 is "on":
+                    set {limpieza::config::auto_activo} to true
+                    send "{@prefix} &aAuto-limpieza activada." to player
+                else if arg-3 is "off":
+                    set {limpieza::config::auto_activo} to false
+                    send "{@prefix} &cAuto-limpieza desactivada." to player
+                stop
+            if arg-2 is "intervalo":
+                if arg-3 is not set:
+                    send "{@prefix} &7Intervalo: &f%{limpieza::config::intervalo_auto}% &7min." to player
+                    stop
+                set {_mins} to arg-3 parsed as number
+                if {_mins} is not set:
+                    send "{@prefix} &cIngresa un número válido (mínimo 10)." to player
+                    stop
+                if {_mins} < 10:
+                    send "{@prefix} &cIngresa un número válido (mínimo 10)." to player
+                    stop
+                set {limpieza::config::intervalo_auto} to {_mins}
+                set {limpieza::contador_auto} to 0
+                send "{@prefix} &aIntervalo auto fijado en &f%{_mins}% &aminutos." to player
+                stop
+            if arg-2 is "mundo":
+                if arg-3 is "listar":
+                    if {limpieza::config::mundos_excluidos::*} is not set:
+                        send "{@prefix} &7No hay mundos excluidos." to player
+                    else:
+                        send "{@prefix} &7Excluidos: &f%{limpieza::config::mundos_excluidos::*}%" to player
+                    stop
+                send "{@prefix} &cUso: /limpiador config mundo <add|del> <mundo>" to player
+                stop
+            send "{@prefix} &7Opciones: sonido, auto, intervalo, mundo" to player
+            stop
+
+command /limpiadormundo <text> <text>:
+    permission: {@perm_admin}
+    permission message: {@prefix} &cNo tienes permiso.
+    trigger:
+        if arg-1 is "add":
+            add arg-2 to {limpieza::config::mundos_excluidos::*}
+            send "{@prefix} &aMundo &f%arg-2% &aexcluido." to player
+        else if arg-1 is "del":
+            remove arg-2 from {limpieza::config::mundos_excluidos::*}
+            send "{@prefix} &aMundo &f%arg-2% &aeliminado de exclusiones." to player
+
+# ---------------------------------------------------------------------
+# LÓGICA DE LIMPIEZA
+# ---------------------------------------------------------------------
+function ejecutarPurgaInmediata(p: player):
+    set {_count} to purgarEntidades()
+    registrarHistorial({_p}'s name, {_count})
+    broadcast "{@prefix} &c%{_p}% &aha ejecutado una purga INMEDIATA de emergencia. (&f%{_count}% &aentidades)"
+    play sound "entity.ender_dragon.growl" to all players
+
+function cancelarLimpieza(p: player):
+    if {limpieza::en_progreso} is true:
+        clear {limpieza::en_progreso}
+        broadcast "{@prefix} &c&l¡LIMPIEZA CANCELADA! &7%{_p}% ha detenido la purga."
+        play sound "block.anvil.land" to all players
+    else:
+        send "{@prefix} &7No hay ninguna limpieza en curso." to {_p}
+
+function programarLimpieza(p: text, minutos: number):
+    set {limpieza::en_progreso} to true
+    set {_restante} to {_minutos} - 1
+
+    anunciar("&e&lAVISO: &7Admin &f%{_p}% &7programó una limpieza en &b%{_minutos}% minuto(s)&7.", "block.note_block.bell")
+
+    while {_restante} >= 1:
+        wait 1 minute
+        if {limpieza::en_progreso} is not set:
+            stop
+        if {_restante} > 1:
+            anunciar("&e&lAVISO: &7Quedan &b%{_restante}% minutos&7.", "block.note_block.bell")
+        else:
+            anunciar("&e&lAVISO: &7Queda &b1 minuto&7.", "block.note_block.bell")
+        remove 1 from {_restante}
+
+    wait 50 seconds
+    if {limpieza::en_progreso} is not set:
+        stop
+
+    anunciar("&c&l¡ALERTA! &7Limpieza en &410 segundos&7.", "entity.wither.ambient")
+
+    loop 10 times:
+        set {_seg} to 11 - loop-number
+        send action bar "{@prefix} &cLimpieza en &4%{_seg}%&c..." to all players
+        wait 1 second
+        if {limpieza::en_progreso} is not set:
+            stop
+
+    set {_count} to purgarEntidades()
+    registrarHistorial({_p}, {_count})
+    anunciar("&a&l¡Completada! &7Purgadas &f%{_count}% &7entidades.", "entity.ender_dragon.growl")
+    clear {limpieza::en_progreso}
+
+# ---------------------------------------------------------------------
+# PANELES GUI
+# ---------------------------------------------------------------------
+function abrirPanelLimpiador(p: player):
+    set {_gui} to a new chest inventory with 5 rows named "{@titulo_panel}"
+    loop integers between 0 and 44:
+        set slot loop-value of {_gui} to gray stained glass pane named " "
+
+    if {limpieza::en_progreso} is true:
+        set slot 4 of {_gui} to redstone torch named "&c&lESTADO: EN CURSO" with lore "&7Cuenta regresiva activa."
+    else:
+        set slot 4 of {_gui} to lime dye named "&a&lESTADO: DISPONIBLE" with lore "&7Servidor listo."
+
+    set slot 11 of {_gui} to glowstone dust named "&e&lAviso de 2 Minutos" with lore "&e▶ ¡Clic para programar!"
+    set slot 13 of {_gui} to clock named "&b&lAviso de 5 Minutos" with lore "&e▶ ¡Clic para programar!"
+    set slot 15 of {_gui} to bell named "&d&lAviso de 10 Minutos" with lore "&e▶ ¡Clic para programar!"
+
+    set {_lore::1} to "&7Últimas limpiezas:"
+    add "" to {_lore::*}
+    if {limpieza::historial::*} is set:
+        loop {limpieza::historial::*}:
+            add loop-value to {_lore::*}
+    else:
+        add "&8Sin registros todavía." to {_lore::*}
+    set slot 20 of {_gui} to book named "&6&lHistorial" with lore {_lore::*}
+    clear {_lore::*}
+
+    if {limpieza::en_progreso} is true:
+        set slot 31 of {_gui} to barrier named "&c&l❌ CANCELAR LIMPIEZA" with lore "&e▶ ¡Clic para cancelar!"
+    else:
+        set slot 31 of {_gui} to sponge named "&4&lLIMPIEZA INMEDIATA" with lore "&c▶ ¡Clic para EMERGENCIAS!"
+
+    if {_p} has permission "{@perm_admin}":
+        set slot 24 of {_gui} to nether star named "&b&l⚙ Configuración" with lore "&7Clic para abrir."
+    open {_gui} to {_p}
+
+function abrirPanelConfig(p: player):
+    set {_gui} to a new chest inventory with 3 rows named "{@titulo_config}"
+    loop integers between 0 and 26:
+        set slot loop-value of {_gui} to gray stained glass pane named " "
+
+    if {limpieza::config::sonidos} is true:
+        set slot 11 of {_gui} to note block named "&a&lSonidos: ON"
+    else:
+        set slot 11 of {_gui} to note block named "&c&lSonidos: OFF"
+
+    if {limpieza::config::auto_activo} is true:
+        set slot 13 of {_gui} to lime dye named "&a&lAuto: ON &7(%{limpieza::config::intervalo_auto}% min)"
+    else:
+        set slot 13 of {_gui} to gray dye named "&c&lAuto: OFF"
+
+    set slot 15 of {_gui} to clock named "&e&lIntervalo: %{limpieza::config::intervalo_auto}% min" with lore "&7Click Izq: &a+10 min" and "&7Click Der: &c-10 min"
+    set slot 22 of {_gui} to arrow named "&7« Volver"
+    open {_gui} to {_p}
+
+# ---------------------------------------------------------------------
+# EVENTOS DE CLIC (REPARADOS)
+# ---------------------------------------------------------------------
+on inventory click:
+    if name of event-inventory is "{@titulo_panel}":
+        cancel event
+        set {_slot} to index of event-slot
+
+        if {_slot} is 11:
+            if {limpieza::en_progreso} is true:
+                send "{@prefix} &cYa hay una limpieza en curso." to player
+            else if player has permission "{@perm_programar}":
+                close player's inventory
+                programarLimpieza(player's name, 2)
+            stop
+
+        if {_slot} is 13:
+            if {limpieza::en_progreso} is true:
+                send "{@prefix} &cYa hay una limpieza en curso." to player
+            else if player has permission "{@perm_programar}":
+                close player's inventory
+                programarLimpieza(player's name, 5)
+            stop
+
+        if {_slot} is 15:
+            if {limpieza::en_progreso} is true:
+                send "{@prefix} &cYa hay una limpieza en curso." to player
+            else if player has permission "{@perm_programar}":
+                close player's inventory
+                programarLimpieza(player's name, 10)
+            stop
+
+        if {_slot} is 31:
+            if {limpieza::en_progreso} is true:
+                if player has permission "{@perm_cancelar}":
+                    close player's inventory
+                    cancelarLimpieza(player)
+            else:
+                if player has permission "{@perm_emergencia}":
+                    close player's inventory
+                    ejecutarPurgaInmediata(player)
+            stop
+
+        if {_slot} is 24:
+            if player has permission "{@perm_admin}":
+                abrirPanelConfig(player)
+            stop
+
+    if name of event-inventory is "{@titulo_config}":
+        cancel event
+        set {_slot} to index of event-slot
+
+        if player does not have permission "{@perm_admin}":
+            close player's inventory
+            stop
+
+        if {_slot} is 11:
+            if {limpieza::config::sonidos} is true:
+                set {limpieza::config::sonidos} to false
+            else:
+                set {limpieza::config::sonidos} to true
+            abrirPanelConfig(player)
+            stop
+
+        if {_slot} is 13:
+            if {limpieza::config::auto_activo} is true:
+                set {limpieza::config::auto_activo} to false
+            else:
+                set {limpieza::config::auto_activo} to true
+            abrirPanelConfig(player)
+            stop
+
+        if {_slot} is 15:
+            if click type is left mouse button:
+                add 10 to {limpieza::config::intervalo_auto}
+            else if click type is right mouse button:
+                if {limpieza::config::intervalo_auto} > 10:
+                    remove 10 from {limpieza::config::intervalo_auto}
+            set {limpieza::contador_auto} to 0
+            abrirPanelConfig(player)
+            stop
+
+        if {_slot} is 22:
+            abrirPanelLimpiador(player)
+            stop
+
+# ---------------------------------------------------------------------
+# AUTO-LIMPIEZA
+# ---------------------------------------------------------------------
+every 1 minute:
+    if {limpieza::config::auto_activo} is true:
+        add 1 to {limpieza::contador_auto}
+        if {limpieza::contador_auto} >= {limpieza::config::intervalo_auto}:
+            set {limpieza::contador_auto} to 0
+            if {limpieza::en_progreso} is not set:
+                programarLimpieza("El Servidor", 5)

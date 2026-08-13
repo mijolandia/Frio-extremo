@@ -1,0 +1,345 @@
+# ==========================================
+# Carga de la URL de Discord por defecto
+# ==========================================
+on load:
+    if {config::url_discord} is not set:
+        set {config::url_discord} to "https://discord.gg/pHW2U26baG"
+
+# ==========================================
+# Comando para cambiar la URL de Discord (Consola/Staff)
+# ==========================================
+command /reemplazarurl <text>:
+    permission: admin.reemplazarurl
+    permission message: "&cNo tienes permisos para usar este comando."
+    usage: "&cUsar: /reemplazarurl <nueva-url>"
+    trigger:
+        set {config::url_discord} to arg-1
+        send "&a[!] URL de Discord actualizada correctamente a: &f%{config::url_discord}%" to sender
+
+# ==========================================
+# Menú de Ayuda y Navegación
+# ==========================================
+command /menu:
+    aliases: /ayuda
+    trigger:
+        # Crear el inventario base (5 filas)
+        set {_menu} to a new chest inventory with 5 rows with name "         &4&lMENÚ DE AYUDA"
+        
+        # Decoración - Cristales Negros en las 4 Esquinas
+        set slot 0, 8, 36 and 44 of {_menu} to black stained glass pane named " "
+        
+        # Decoración - Marco de Cristales Rojos
+        set slot 1, 7, 9, 17, 27, 35, 37 and 43 of {_menu} to red stained glass pane named " "
+        
+        # --- FILA 1 ---
+        # Slot 4: Bolsa de Valores (Mercado)
+        set slot 4 of {_menu} to furnace named "&6&lBolsa de Valores (Mercado)" with lore "" and "&8⮞ &7Mira cómo fluctúa la economía local." and "&8⮞ &7Intercambia materiales con corporaciones." and "" and "&e▶ ¡Clic para abrir el Mercado Central!"
+        
+        # --- FILA 2 ---
+        # Slot 10: Mundos del Server (/mundos)
+        set slot 10 of {_menu} to grass block named "&2&lMundos del Server" with lore "" and "&8⮞ &7Consulta los detalles de los mapas." and "&8⮞ &7Información, límites y zonas del Overworld." and "" and "&e▶ ¡Clic para ver los mundos!"
+        
+        # Slot 11: Menú de Busca
+        set slot 11 of {_menu} to iron sword named "&4&lBúsquedas" with lore "" and "&8⮞ &7Encuentra y mata a los jugadores" and "&7que están en lista para asesinar." and "&8⮞ &7¡Gana dinero!" and "" and "&e⮞ ¡Clic para abrir!"
+
+        # Slot 12: pShop (ProtectionStones)
+        set slot 12 of {_menu} to emerald ore named "&6&lTienda de Protecciones" with lore "" and "&8⮞ &7Abre la tienda de protecciones." and "&8⮞ &7Con las menas proteges tus regiones." and "" and "&e⮞ ¡Clic para abrir!"
+        
+        # Slot 14: Redes Sociales (Corazón del mar - Discord)
+        set slot 14 of {_menu} to heart of the sea named "&9&lRedes Sociales" with lore "" and "&8⮞ &7Únete a nuestra comunidad de Discord," and "&7  enterate de eventos, anuncios y más." and "" and "&e▶ ¡Clic para ver nuestras redes!"
+        
+        # Slot 13: Sistemas de Mochilas (PV's)
+        set slot 13 of {_menu} to chest named "&e&lMochilas" with lore "" and "&8⮞ &7Gestiona y administra tus" and "&7objetos." and "" and "&e⮞ ¡Clic para entrar!"
+        
+        # Slot 15: Sistema de Recompensas
+        set slot 15 of {_menu} to emerald named "&4&lRecompensas" with lore "" and "&8⮞ &7Sistema de recompensas" and "&7diarias." and "" and "&e⮞ ¡Clic para entrar!"
+        
+        # Slot 16: Teletransporte Aleatorio (/rtp)
+        set slot 16 of {_menu} to ender pearl named "&a&lTeletransporte Aleatorio (RTP)" with lore "" and "&8⮞ &7Viaja a una ubicación aleatoria." and "&8⮞ &7Ideal para explorar, recursos o construir." and "" and "&e▶ ¡Clic para abrir el Portal RTP!"
+
+        # --- FILA 3 ---
+        # Slot 20: Kits del Servidor
+        set slot 20 of {_menu} to chest named "&b&lKits del Servidor" with lore "" and "&8⮞ &7Reclama tus herramientas de inicio," and "&7  recompensas diarias y beneficios de rango." and "" and "&e▶ ¡Clic para ver los kits disponibles!"
+        
+        # Slot 22: Spawn Principal (Centro del Inventario)
+        set slot 22 of {_menu} to nether star named "&a&lSpawn Principal" with lore "" and "&8⮞ &7Regresa a la zona segura del servidor" and "&7  en cualquier momento." and "" and "&8⮞ &a¡Clic para teletransportarse!"
+        
+        # Slot 24: Zonas y Warps
+        set slot 24 of {_menu} to compass named "&c&lZonas y Warps" with lore "" and "&8⮞ &7Explora los mundos de recolección," and "&7  zonas de combate y lugares de interés." and "" and "&e▶ ¡Clic para ver los destinos!"
+        
+        # --- FILA 4 ---
+        # Slot 30: Comandos Básicos
+        set slot 30 of {_menu} to writable book named "&b&lComandos Básicos" with lore "" and "&8⮞ &7Aprende a usar &f/home&7, &f/sethome&7," and "&7  &f/tpa&7, &f/tpaccept&7, &f/tpdeny&7 y más." and "" and "&e▶ ¡Clic para ver la guía completa!"
+        
+        # Slot 31: Normativas (Centro de la Fila 4)
+        set slot 31 of {_menu} to book named "&c&lNormativas del Servidor" with lore "" and "&8⮞ &a1. Prohibido Grifear/Matar sin razón." and "&8⮞ &a2. Prohibido el uso de ventajas (Hacks)." and "&8⮞ &a3. Respetar a usuarios y al Staff." and "&8⮞ &a4. Prohibido el Spam y Flood." and "&8⮞ &a5. No dar ni pedir contraseñas de nada." and "&8⮞ &a6. Sentido Común."
+
+        # Slot 32: Jobs Reborn
+        set slot 32 of {_menu} to wooden pickaxe named "&c&lTrabajos (Jobs)" with lore "" and "&8⮞ &7Consigue uno o dos trabajos para" and "&7obtener dinero." and "" and "&a⮞ ¡Clic para abrir!"
+
+        # --- FILA 5 ---
+        # Slot 40: Cerrar Menú (Centro Inferior)
+        set slot 40 of {_menu} to barrier named "&c&l◀ Cerrar Menú" with lore "&7Haz clic aquí para salir de la interfaz."
+        
+        # Abrir el menú al jugador
+        open {_menu} to player
+
+# ==========================================
+# Sub-menú: Comandos Básicos
+# ==========================================
+function abrirComandosBasicos(p: player):
+    set {_menu} to a new chest inventory with 3 rows with name "&b&lCOMANDOS BÁSICOS"
+    
+    set slot 0, 1, 2, 3, 4, 5, 6, 7, 8, 18, 19, 20, 21, 22, 23, 24, 25 and 26 of {_menu} to black stained glass pane named " "
+    set slot 9 and 17 of {_menu} to blue stained glass pane named " "
+    
+    set slot 10 of {_menu} to red bed named "&a&l/home" with lore "" and "&7Te teletransporta a tu casa guardada." and "" and "&8Ejemplo: &f/home" and "" and "&e▶ ¡Clic para probarlo ahora!"
+    
+    set slot 11 of {_menu} to map named "&a&l/sethome" with lore "" and "&7Guarda tu ubicación actual como tu casa." and "&7Después usás &f/home &7para volver." and "" and "&8Ejemplo: &f/sethome" and "" and "&e▶ ¡Clic para guardar aquí mismo!"
+    
+    set slot 12 of {_menu} to ender pearl named "&b&l/tpa" with lore "" and "&7Le pedís a otro jugador teletransportarte" and "&7hacia donde está." and "" and "&8Ejemplo: &f/tpa Santy" and "" and "&7  (le pide permiso a Santy para ir con él)"
+    
+    set slot 13 of {_menu} to gold ingot named "&6&l/mercado (Bolsa de Valores)" with lore "" and "&7¡La economía es dinámica y fluctúa!" and "" and "&8⮞ &7Para más información, reclama y lee" and "&7  la &dGuía del Mercado &7(el libro) dentro" and "&7  del menú del mercado." and "" and "&e▶ ¡Clic para abrir el Mercado Central!"
+    
+    set slot 14 of {_menu} to lime dye named "&a&l/tpaccept &7y &c/tpdeny" with lore "" and "&7Cuando alguien te manda un &f/tpa&7," and "&7te llega un pedido que podés:" and "" and "&a✔ /tpaccept &7- aceptar y que venga" and "&c✘ /tpdeny &7- rechazar el pedido"
+    
+    set slot 15 of {_menu} to clock named "&d&l/back" with lore "" and "&7Te lleva de vuelta a tu última" and "&7ubicación (útil tras morir o" and "&7teletransportarte por error)." and "" and "&8Ejemplo: &f/back" and "" and "&e▶ ¡Clic para volver ahora!"
+    
+    set slot 16 of {_menu} to paper named "&e&l/msg &7y &e/r" with lore "" and "&7Mandale un mensaje privado a alguien." and "" and "&8Ejemplo: &f/msg Santy Hola!" and "" and "&7  (Santy responde con &f/r Hola de vuelta&7)"
+    
+    set slot 22 of {_menu} to arrow named "&c&l◀ Volver al Menú" with lore "&7Regresar al Menú de Ayuda principal."
+    
+    open {_menu} to {_p}
+
+# ==========================================
+# Sub-menú: Zonas y Warps
+# ==========================================
+function abrirZonasYWarps(p: player):
+    set {_menu} to a new chest inventory with 3 rows with name "&c&lZONAS Y WARPS"
+    
+    # Decoración del menú de warps
+    set slot 0, 1, 2, 3, 4, 5, 6, 7, 8, 18, 19, 20, 21, 22, 23, 24, 25 and 26 of {_menu} to black stained glass pane named " "
+    set slot 9 and 17 of {_menu} to red stained glass pane named " "
+    
+    # Warp 1 (Slot 11) - Teletransporte Aleatorio (RTP)
+    set slot 11 of {_menu} to ender pearl named "&a&lTeletransporte Aleatorio" with lore "" and "&7Abre el menú de RTP para teletransportarte." and "" and "&e▶ ¡Clic para abrir RTP!"
+    
+    # Warp 2 (Slot 13) - PvP
+    set slot 13 of {_menu} to iron sword named "&c&lArena PvP" with lore "" and "&7¡Demuestra quién es el mejor" and "&7en combates a muerte!" and "" and "&e▶ ¡Clic para viajar!"
+    
+    # Warp 3 (Slot 15) - Mercado Físico o Eventos
+    set slot 15 of {_menu} to emerald named "&6&lMercado / Tiendas" with lore "" and "&7Visita la zona comercial segura." and "" and "&e▶ ¡Clic para viajar!"
+    
+    # Botón Volver
+    set slot 22 of {_menu} to arrow named "&c&l◀ Volver al Menú" with lore "&7Regresar al Menú de Ayuda principal."
+    
+    open {_menu} to {_p}
+
+# ==========================================
+# Sub-menú: Redes Sociales / Discord
+# ==========================================
+function abrirRedesSociales(p: player):
+    set {_menu} to a new chest inventory with 3 rows with name "&9&lREDES SOCIALES"
+    
+    # Decoración
+    set slot 0, 1, 2, 3, 4, 5, 6, 7, 8, 18, 19, 20, 21, 23, 24, 25 and 26 of {_menu} to black stained glass pane named " "
+    set slot 9 and 17 of {_menu} to blue stained glass pane named " "
+    
+    # Botón Central de Discord
+    set slot 13 of {_menu} to heart of the sea named "&9&lServidor de Discord" with lore "" and "&8⮞ &7Únete para hablar con la comunidad," and "&7  reportar errores o participar en eventos." and "" and "&9Enlace: &f%{config::url_discord}%" and "" and "&e▶ ¡Clic para recibir el enlace en el chat!"
+    
+    # Botón Volver (Slot 22)
+    set slot 22 of {_menu} to arrow named "&c&l◀ Volver al Menú" with lore "&7Regresar al Menú de Ayuda principal."
+    
+    open {_menu} to {_p}
+
+# ==========================================
+# Sub-menú: Mochilas
+# ==========================================
+function abrirMochilas(p: player):
+    set {_menu} to a new chest inventory with 4 rows with name "&e&lMOCHILAS"
+    
+    # Fondo decorativo
+    loop 36 times:
+        set slot loop-number - 1 of {_menu} to black stained glass pane named " "
+    
+    # Slots simétricos para las 8 mochilas
+    set {_slots::*} to 11 and 12 and 14 and 15 and 20 and 21 and 23 and 24
+    set {_pv} to 1
+    
+    loop {_slots::*}:
+        if {_p} has permission "pv.%{_pv}%":
+            set slot loop-value of {_menu} to chest named "&e&lMochila ##%{_pv}%" with lore "" and "&7Haz clic para abrir" and "&7tu mochila."
+        else:
+            set slot loop-value of {_menu} to barrier named "&c&lMochila ##%{_pv}% Bloqueada" with lore "" and "&7No tienes permiso para" and "&7usar esta mochila."
+        add 1 to {_pv}
+        
+    # Botón Volver
+    set slot 31 of {_menu} to arrow named "&c&l◀ Volver al Menú" with lore "&7Regresar al Menú de Ayuda principal."
+    
+    open {_menu} to {_p}
+
+# ==========================================
+# Eventos de Clic en el Inventario
+# ==========================================
+on inventory click:
+    # ----------------------------------------
+    # CLICS EN EL MENÚ PRINCIPAL
+    # ----------------------------------------
+    if name of event-inventory is "         &4&lMENÚ DE AYUDA":
+        cancel event 
+        
+        # Slot 4: Mercado
+        if index of event-slot is 4:
+            close player's inventory
+            execute player command "mercado"
+
+        # Slot 10: Mundos
+        if index of event-slot is 10:
+            close player's inventory
+            execute player command "mundos"
+        # Slot 11: Busca
+        if index of event-slot is 11:
+            close player's inventory
+            execute player command "/buscar"
+            
+        # Slot 12: Tienda de Protecciones
+        if index of event-slot is 12:
+            close player's inventory
+            execute player command "pshop"
+            
+        # Slot 13: Mochilas
+        if index of event-slot is 13:
+            abrirMochilas(player)
+        
+        # Slot 14: Redes Sociales
+        if index of event-slot is 14:
+            abrirRedesSociales(player)
+        
+        # Slot 15: Sistema de Recompensas
+        if index of event-slot is 15:
+            execute player command "recompensas"
+
+        # Slot 16: RTP
+        if index of event-slot is 16:
+            close player's inventory
+            execute player command "rtp"
+            
+        # Slot 20: Kits
+        if index of event-slot is 20:
+            close player's inventory
+            execute player command "kits"
+            
+        # Slot 22: Spawn
+        if index of event-slot is 22:
+            close player's inventory
+            execute player command "spawn"
+            
+        # Slot 24: Zonas y Warps
+        if index of event-slot is 24:
+            abrirZonasYWarps(player)
+            
+        # Slot 30: Comandos Básicos
+        if index of event-slot is 30:
+            abrirComandosBasicos(player)
+
+        # Slot 32: Jobs
+        if index of event-slot is 32:
+            close player's inventory
+            execute player command "jobs"
+            
+        # Slot 40: Cerrar Menú
+        if index of event-slot is 40:
+            close player's inventory
+
+    # ----------------------------------------
+    # CLICS EN EL MENÚ COMANDOS BÁSICOS
+    # ----------------------------------------
+    else if name of event-inventory is "&b&lCOMANDOS BÁSICOS":
+        cancel event
+        set {_c} to index of event-slot
+        
+        if {_c} is 10:
+            close player's inventory
+            execute player command "home"
+            
+        if {_c} is 11:
+            close player's inventory
+            execute player command "sethome"
+            
+        if {_c} is 13:
+            close player's inventory
+            execute player command "mercado"
+            
+        if {_c} is 15:
+            close player's inventory
+            execute player command "back"
+            
+        if {_c} is 22:
+            close player's inventory
+            execute player command "ayuda"
+            
+    # ----------------------------------------
+    # CLICS EN EL MENÚ ZONAS Y WARPS
+    # ----------------------------------------
+    else if name of event-inventory is "&c&lZONAS Y WARPS":
+        cancel event
+        set {_c} to index of event-slot
+        
+        if {_c} is 11:
+            close player's inventory
+            execute player command "rtp"
+            
+        if {_c} is 13:
+            close player's inventory
+            execute player command "warp pvp"
+            
+        if {_c} is 15:
+            close player's inventory
+            execute player command "warp mercado"
+            
+        if {_c} is 22:
+            close player's inventory
+            execute player command "ayuda"
+
+    # ----------------------------------------
+    # CLICS EN EL MENÚ REDES SOCIALES
+    # ----------------------------------------
+    else if name of event-inventory is "&9&lREDES SOCIALES":
+        cancel event
+        set {_c} to index of event-slot
+        
+        if {_c} is 13:
+            close player's inventory
+            send "" to player
+            send "&9&l[Discord] &7Únete a nuestra comunidad aquí: &f%{config::url_discord}%" to player
+            send "" to player
+            
+        if {_c} is 22:
+            close player's inventory
+            execute player command "ayuda"
+    # ----------------------------------------
+    # CLICS EN EL MENÚ MOCHILAS
+    # ----------------------------------------
+    else if name of event-inventory is "&e&lMOCHILAS":
+        cancel event
+        set {_c} to index of event-slot
+        
+        # Botón Volver
+        if {_c} is 31:
+            close player's inventory
+            execute player command "ayuda"
+            stop
+            
+        # Detectar qué mochila clickeó
+        set {_slots::*} to 11 and 12 and 14 and 15 and 20 and 21 and 23 and 24
+        set {_pv} to 1
+        
+        loop {_slots::*}:
+            if {_c} is loop-value:
+                if player has permission "pv.%{_pv}%":
+                    close player's inventory
+                    execute player command "pv %{_pv}%"
+                else:
+                    send "&c[!] La Mochila ##%{_pv}% está bloqueada." to player
+            add 1 to {_pv}

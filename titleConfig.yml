@@ -1,0 +1,44 @@
+# Configuración de Títulos y Rangos por Nivel
+# Define los rangos que los jugadores obtienen al alcanzar ciertos niveles en sus trabajos.
+
+Titles:
+  Novice:
+    Name: "&eNovato"
+    ShortName: "&eNov"
+    ChatColour: YELLOW
+    levelReq: 0
+  Apprentice:
+    Name: "&aAprendiz"
+    ShortName: "&aApr"
+    ChatColour: GREEN
+    levelReq: 25
+  Initiate:
+    Name: "&6Iniciado"
+    ShortName: "&6Ini"
+    ChatColour: GOLD
+    levelReq: 50
+  Journeyman:
+    Name: "&2Oficial"
+    ShortName: "&2Ofi"
+    ChatColour: DARK_GREEN
+    levelReq: 75
+  Adept:
+    Name: "&bAdepto"
+    ShortName: "&bAde"
+    ChatColour: AQUA
+    levelReq: 100
+  Master:
+    Name: "&5Maestro"
+    ShortName: "&5Mae"
+    ChatColour: DARK_PURPLE
+    levelReq: 125
+  Grandmaster:
+    Name: "&cGran Maestro"
+    ShortName: "&cG.M"
+    ChatColour: RED
+    levelReq: 150
+  Legendary:
+    Name: "&4&lLeyenda"
+    ShortName: "&4&lLey"
+    ChatColour: DARK_RED
+    levelReq: 200

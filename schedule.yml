@@ -1,0 +1,63 @@
+# Configuración de Horas Felices y Eventos Temporales (schedule.yml)
+# 
+# Explicación de multiplicadores:
+#   1.0 = Ganancia normal (sin cambios)
+#   1.5 = +50% de ganancia (1.5x)
+#   2.0 = El doble de ganancia (2x)
+#
+# Días permitidos: Monday, Tuesday, Wednesday, Thursday, Friday, Saturday, Sunday, All
+# Trabajos: Nombre exacto del trabajo o 'All' para aplicar a todos los empleos.
+
+Boost:
+  BonusNocturno:
+    Enabled: true # Cambia a 'true' para activar el evento nocturno
+    From: '23:00:00'
+    Until: '07:00:00'
+    Exp: 2.0
+    Money: 2.0
+    Days:
+    - All
+    Jobs:
+    - All
+    BroadcastOnStart: true
+    MessageOnStart:
+    - '&e&l***********************************************'
+    - '&a&l  ¡EVENTO NOCTURNO ACTIVADO! Multiplicador 2x'
+    - '&e  Experiencia y dinero duplicados en todos los empleos'
+    - '&e&l***********************************************'
+    BroadcastOnStop: true
+    MessageOnStop:
+    - '&c&l***********************************************'
+    - '&c&l  El evento nocturno ha finalizado.'
+    - '&e  Las ganancias han vuelto a sus valores normales.'
+    - '&c&l***********************************************'
+    BroadcastInterval: 30
+    BroadcastMessage:
+    - '&e&l[!] ¡El evento 2x dinero y XP estará activo hasta las [until]!'
+
+  BonusFinDeSemana:
+    Enabled: true # Cambia a 'true' para activar el evento de fin de semana
+    From: '14:00:00'
+    Until: '18:00:00'
+    Exp: 1.5
+    Money: 2.0
+    Days:
+    - Saturday
+    - Sunday
+    Jobs:
+    - Minero
+    - Leñador
+    BroadcastOnStart: true
+    MessageOnStart:
+    - '&e&l***********************************************'
+    - '&a&l  ¡HORA FELIZ DE FIN DE SEMANA ACTIVADA!'
+    - '&e  Minero y Leñador ganan 2x dinero y 1.5x XP'
+    - '&e&l***********************************************'
+    BroadcastOnStop: true
+    MessageOnStop:
+    - '&c&l***********************************************'
+    - '&c&l  La Hora Feliz para Minero y Leñador ha terminado.'
+    - '&c&l***********************************************'
+    BroadcastInterval: 15
+    BroadcastMessage:
+    - '&e&l[!] ¡Bonus de fin de semana activo en Minero y Leñador hasta las [until]!'

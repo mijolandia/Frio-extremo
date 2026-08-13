@@ -1,0 +1,218 @@
+# =====================================================================
+#   🌿 NATURELAND | PROTECTION STONES SHOP - V3.1 (NATURELAND UX)
+# =====================================================================
+
+options:
+    prefix: &8[&a&lNATURE&e&lLAND&8] &r
+    gui_name: &8🌿 &a&lPROTECCIONES &8| &7Menú
+    gui_confirm_name: &8🌿 &a&lPROTECCIONES &8| &0&lCONFIRMAR
+    
+    # --- PRECIOS ESCALONADOS ---
+    p_carbon: 3000
+    p_cobre: 4500
+    p_hierro: 6500
+    p_diamante: 15000
+    p_esmeralda: 28000
+    p_vip: 60000
+
+# ---------------------------------------------------------------------
+# 1. MOTOR DE INICIALIZACIÓN Y CACHÉ
+# ---------------------------------------------------------------------
+on load:
+    # Cache de botones de confirmación
+    set {pshop::sys::cache::confirm_btn} to lime stained glass pane named "&a&l✔ CONFIRMAR COMPRA" with lore "" and "&7Haz clic para procesar la transacción."
+    set {pshop::sys::cache::cancel_btn} to red stained glass pane named "&c&l✖ CANCELAR / VOLVER" with lore "" and "&7Haz clic para regresar al menú anterior."
+    
+    # Cache de ítems de la tienda
+    set {pshop::sys::cache::item::10} to coal ore named "&8&lPROTECCIÓN CARBÓN &7(8x8)" with lore "", "&7Área de protección: &f8x8 bloques", "&7Precio: &a${@p_carbon}", "" and "&e▶ Clic para seleccionar"
+    set {pshop::sys::cache::item::11} to copper ore named "&c&lPROTECCIÓN COBRE &7(16x16)" with lore "", "&7Área de protección: &f16x16 bloques", "&7Precio: &a${@p_cobre}", "" and "&e▶ Clic para seleccionar"
+    set {pshop::sys::cache::item::12} to iron ore named "&f&lPROTECCIÓN HIERRO &7(32x32)" with lore "", "&7Área de protección: &f32x32 bloques", "&7Precio: &a${@p_hierro}", "" and "&e▶ Clic para seleccionar"
+    set {pshop::sys::cache::item::13} to diamond ore named "&b&lPROTECCIÓN DIAMANTE &7(64x64)" with lore "", "&7Área de protección: &f64x64 bloques", "&7Precio: &a${@p_diamante}", "" and "&e▶ Clic para seleccionar"
+    set {pshop::sys::cache::item::14} to emerald ore named "&a&lPROTECCIÓN ESMERALDA &7(128x128)" with lore "", "&7Área de protección: &f128x128 bloques", "&7Precio: &a${@p_esmeralda}", "" and "&e▶ Clic para seleccionar"
+    
+    # ÍTEM EXCLUSIVO VIP (NETHERITE_BLOCK - alias interno: staff256)
+    set {pshop::sys::cache::item::22} to netherite block named "&5&lPROTECCIÓN VIP &7(256x256)" with lore "", "&7Área de protección: &f256x256 bloques", "&7Requiere rango: &dVIP", "&7Precio: &a${@p_vip}", "" and "&e▶ Clic para seleccionar"
+    
+    # ÍTEM DE NAVEGACIÓN A /AYUDA
+    set {pshop::sys::cache::item::18} to arrow named "&c&lMenú de Ayuda" with lore "" and "&8▶ &7¡Clic para ir a /ayuda!"
+
+on unload:
+    delete {pshop::sys::cache::*}
+    delete {pshop::sys::cd::*}
+
+# ---------------------------------------------------------------------
+# 2. SISTEMA UX DE BORDES NATURELAND (DEGRADADO FORESTAL)
+# ---------------------------------------------------------------------
+function fillPSBorders(p: player, rows: number):
+    set {_totalSlots} to ({_rows} * 9) - 1
+    
+    # Paleta Natureland: Verde Lima -> Verde Oscuro -> Amarillo -> Naranja
+    set {_panes::1} to lime stained glass pane named "&r"
+    set {_panes::2} to green stained glass pane named "&r"
+    set {_panes::3} to yellow stained glass pane named "&r"
+    set {_panes::4} to orange stained glass pane named "&r"
+    
+    set {_color_idx} to 1
+    loop {_totalSlots} + 1 times:
+        set {_slot} to loop-number - 1
+        set {_is_border} to false
+        
+        if {_slot} is less than 9:
+            set {_is_border} to true
+        else if {_slot} is greater than or equal to ({_totalSlots} - 8):
+            set {_is_border} to true
+        else if mod({_slot}, 9) is 0:
+            set {_is_border} to true
+        else if mod(({_slot} + 1), 9) is 0:
+            set {_is_border} to true
+            
+        if {_is_border} is true:
+            set slot {_slot} of {_p}'s current inventory to {_panes::%{_color_idx}%}
+            add 1 to {_color_idx}
+            if {_color_idx} > 4:
+                set {_color_idx} to 1
+
+# ---------------------------------------------------------------------
+# 3. COMANDOS Y MENÚS
+# ---------------------------------------------------------------------
+command /tiendaps:
+    aliases: /pshop, /protecciones, /ps
+    trigger:
+        abrirMenuPrincipal(player)
+
+function abrirMenuPrincipal(p: player):
+    set {_gui} to a new chest inventory with 3 rows named "{@gui_name}"
+    open {_gui} to {_p}
+    fillPSBorders({_p}, 3)
+        
+    set slot 10 of {_p}'s current inventory to {pshop::sys::cache::item::10}
+    set slot 11 of {_p}'s current inventory to {pshop::sys::cache::item::11}
+    set slot 12 of {_p}'s current inventory to {pshop::sys::cache::item::12}
+    set slot 13 of {_p}'s current inventory to {pshop::sys::cache::item::13}
+    set slot 14 of {_p}'s current inventory to {pshop::sys::cache::item::14}
+    set slot 18 of {_p}'s current inventory to {pshop::sys::cache::item::18}
+    set slot 22 of {_p}'s current inventory to {pshop::sys::cache::item::22}
+    
+    play sound "block.chest.open" with volume 0.8 and pitch 1.2 to {_p}
+
+function abrirMenuConfirmacion(p: player, slot_cache: number, alias: text, precio: number):
+    set {_gui} to a new chest inventory with 3 rows named "{@gui_confirm_name}"
+    open {_gui} to {_p}
+    fillPSBorders({_p}, 3)
+        
+    # Botones de Confirmar (Izquierda)
+    set slot 10 of {_p}'s current inventory to {pshop::sys::cache::confirm_btn}
+    set slot 11 of {_p}'s current inventory to {pshop::sys::cache::confirm_btn}
+    set slot 19 of {_p}'s current inventory to {pshop::sys::cache::confirm_btn}
+    set slot 20 of {_p}'s current inventory to {pshop::sys::cache::confirm_btn}
+    
+    # Muestra del Ítem Seleccionado (Centro)
+    set slot 13 of {_p}'s current inventory to {pshop::sys::cache::item::%{_slot_cache}%}
+    
+    # Botones de Cancelar (Derecha)
+    set slot 15 of {_p}'s current inventory to {pshop::sys::cache::cancel_btn}
+    set slot 16 of {_p}'s current inventory to {pshop::sys::cache::cancel_btn}
+    set slot 24 of {_p}'s current inventory to {pshop::sys::cache::cancel_btn}
+    set slot 25 of {_p}'s current inventory to {pshop::sys::cache::cancel_btn}
+    
+    # Guardar metadata temporal en el jugador
+    set metadata tag "pshop_pending_alias" of {_p} to {_alias}
+    set metadata tag "pshop_pending_precio" of {_p} to {_precio}
+    
+    play sound "block.note_block.pling" with volume 0.8 and pitch 1.5 to {_p}
+
+# ---------------------------------------------------------------------
+# 4. ROUTER DE EVENTOS E INTERACCIÓN CON GUI
+# ---------------------------------------------------------------------
+on inventory click:
+    set {_title} to name of player's current inventory
+    
+    # --- INTERACCIÓN EN MENÚ PRINCIPAL ---
+    if {_title} is "{@gui_name}":
+        cancel event
+        if event-inventory is player's inventory:
+            stop
+            
+        set {_uuid} to player's uuid
+        set {_now} to unix timestamp of now
+        set {_last_click} to {pshop::sys::cd::%{_uuid}%} ? 0
+        
+        if ({_now} - {_last_click}) < 0.25:
+            stop
+            
+        set {pshop::sys::cd::%{_uuid}%} to {_now}
+        set {_slot} to index of event-slot
+        
+        if {_slot} is 10:
+            abrirMenuConfirmacion(player, 10, "carbon8x8", {@p_carbon})
+        else if {_slot} is 11:
+            abrirMenuConfirmacion(player, 11, "cobre16x16", {@p_cobre})
+        else if {_slot} is 12:
+            abrirMenuConfirmacion(player, 12, "hierro32x32", {@p_hierro})
+        else if {_slot} is 13:
+            abrirMenuConfirmacion(player, 13, "diamante64x64", {@p_diamante})
+        else if {_slot} is 14:
+            abrirMenuConfirmacion(player, 14, "esmeralda128x128", {@p_esmeralda})
+        else if {_slot} is 18:
+            close player's inventory
+            make player execute command "/ayuda"
+        else if {_slot} is 22:
+            if player has permission "pshop.vip":
+                abrirMenuConfirmacion(player, 22, "staff256", {@p_vip})
+            else:
+                play sound "entity.villager.no" with volume 1 and pitch 1 to player
+                send "{@prefix} &cNo tienes permiso para comprar esta mena. Requiere rango VIP." to player
+
+    # --- INTERACCIÓN EN MENÚ DE CONFIRMACIÓN ---
+    else if {_title} is "{@gui_confirm_name}":
+        cancel event
+        if event-inventory is player's inventory:
+            stop
+            
+        set {_slot} to index of event-slot
+        
+        # Clic en CONFIRMAR
+        if {_slot} is 10 or 11 or 19 or 20:
+            set {_alias} to metadata tag "pshop_pending_alias" of player
+            set {_precio} to metadata tag "pshop_pending_precio" of player
+            
+            clear metadata tag "pshop_pending_alias" of player
+            clear metadata tag "pshop_pending_precio" of player
+            
+            close player's inventory
+            if {_alias} is set:
+                comprarPS(player, {_alias}, {_precio})
+                
+        # Clic en CANCELAR / VOLVER
+        else if {_slot} is 15 or 16 or 24 or 25:
+            clear metadata tag "pshop_pending_alias" of player
+            clear metadata tag "pshop_pending_precio" of player
+            
+            abrirMenuPrincipal(player)
+
+# Limpieza de metadata al cerrar el inventario por cualquier motivo
+on inventory close:
+    if name of event-inventory is "{@gui_confirm_name}":
+        clear metadata tag "pshop_pending_alias" of player
+        clear metadata tag "pshop_pending_precio" of player
+
+# ---------------------------------------------------------------------
+# 5. TRANSACCIÓN SEGURA
+# ---------------------------------------------------------------------
+function comprarPS(p: player, alias: text, precio: number):
+    if {_p}'s balance < {_precio}:
+        play sound "entity.villager.no" with volume 1 and pitch 1 to {_p}
+        send "{@prefix}&cNo tienes suficiente dinero. Necesitas &a$%{_precio}%&c." to {_p}
+        stop
+        
+    if {_p} doesn't have enough space for 1 stone block:
+        play sound "entity.villager.no" with volume 1 and pitch 1 to {_p}
+        send "{@prefix}&cTu inventario está lleno. Haz espacio primero." to {_p}
+        stop
+        
+    remove {_precio} from {_p}'s balance
+    
+    execute console command "ps give %{_alias}% %{_p}'s name% 1"
+    
+    play sound "entity.player.levelup" with volume 0.8 and pitch 1.5 to {_p}
+    send "{@prefix}&a¡Has comprado una protección &e%{_alias}% &apor &a$%{_precio}%&a!" to {_p}

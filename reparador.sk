@@ -1,0 +1,39 @@
+# =====================================================================
+#             🌱 SKRIPT: LIMPIADOR DE BIOMA AUTOMÁTICO 100x100 🌱
+# =====================================================================
+
+options:
+    prefix: <##00FF00>&l[&f🌱&a Deshielo Express &l]&f
+
+command /climanormal:
+    permission: op
+    permission message: {@prefix} &cNo tienes permisos para restaurar el clima.
+    trigger:
+        set {_x} to round(x-coordinate of player)
+        set {_y} to round(y-coordinate of player)
+        set {_z} to round(z-coordinate of player)
+        
+        # Calculamos los extremos del cubo de 100x100 (50 bloques hacia cada lado)
+        set {_x1} to {_x} - 50
+        set {_z1} to {_z} - 50
+        set {_x2} to {_x} + 50
+        set {_z2} to {_z} + 50
+        
+        # Ajustamos la altura fija (desde la capa 50 hasta la 90 suele cubrir todo el suelo/árboles)
+        set {_y1} to {_y} - 15
+        set {_y2} to {_y} + 25
+        
+        send "{@prefix} &eCalculando área de 100x100..." to player
+        send "{@prefix} &7Esquinas estimadas: (%{_x1}%, %{_y1}%, %{_z1}%) hasta (%{_x2}%, %{_y2}%, %{_z2}%)" to player
+        
+        # Ejecutamos el comando vanilla de forma segura a través de la consola/servidor
+        execute console command "fillbiome %{_x1}% %{_y1}% %{_z1}% %{_x2}% %{_y2}% %{_z2}% minecraft:plains"
+        
+        # Quitamos cualquier clima visual de troleo previo
+        loop all players in radius 60 around player:
+            make loop-player execute command "/pweather reset"
+            delete {-nieve::troleo::%uuid of loop-player%}
+            
+        send "{@prefix} &a¡Hecho! Bioma cambiado a Plains en un área de 100x100." to player
+        send "{@prefix} &bRecuerda reconectarte (o que tu amigo lo haga) para que Minecraft limpie la caché y pinte el pasto verde." to player
+        play sound "entity.player.levelup" with volume 0.5 and pitch 1.2 at player

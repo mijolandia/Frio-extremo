@@ -1,0 +1,860 @@
+# ==============================================================================
+#   🌿 NATURELAND ABISAL 2.5 | COMMERCIAL SURVIVAL EDITION ($50 QUALITY)
+#   COMPATIBILIDAD ESTRICTA: Paper 1.21.11 | Skript 2.15.4 | SkBee 3.25+
+#   ARQUITECTURA: 100% Event-Driven | BossBar de Colores | Noches T0 al T3
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# 1. INICIALIZACIÓN GLOBAL SEGURA
+# ------------------------------------------------------------------------------
+on load:
+    if {nl::evento::ruptura_activa} is not set:
+        set {nl::evento::ruptura_activa} to false
+    if {nl::evento::ruptura_segundos} is not set:
+        set {nl::evento::ruptura_segundos} to 0
+    if {trofeo::precio_base} is not set:
+        set {trofeo::precio_base} to 120
+    if {trofeo::tendencia} is not set:
+        set {trofeo::tendencia} to "&e&l➖ ESTABLE"
+
+    send "&8[&a&lNATURE&e&lLAND&8] &a✔ NatureLand Abisal 2.5 (Clean BossBar & Night T0-T3) cargado." to console
+
+# ------------------------------------------------------------------------------
+# 2. COMANDOS RÁPIDOS DE RECARGA (/MOBSRELOAD & /K RELOAD)
+# ------------------------------------------------------------------------------
+command /mobsreload:
+    aliases: /mobsrl, /elitesreload
+    permission: admin.mobs
+    permission message: &cNo tienes permisos de administrador.
+    trigger:
+        execute console command "sk reload %script's name%"
+        send "&8[&a&lNATURE&e&lLAND&8] &a✔ ¡El archivo &f%script's name%.sk &aha sido recargado correctamente!" to sender
+        if sender is a player:
+            play sound "block.note_block.chime" with volume 1.0 and pitch 1.5 to sender
+
+command /k <text> <text>:
+    permission: admin.mobs
+    permission message: &cNo tienes permisos de administrador.
+    trigger:
+        if arg-1 is "reload":
+            if arg-2 is "Semi-plugins/mobs" or "mobs":
+                execute console command "sk reload Semi-plugins/mobs.sk"
+                send "&8[&a&lNATURE&e&lLAND&8] &a✔ Mobs recargados correctamente." to sender
+
+# ------------------------------------------------------------------------------
+# 3. FUNCIONES AUXILIARES Y VALIDACIONES
+# ------------------------------------------------------------------------------
+function nlGetTipoMob(e: entity) :: text:
+    if {_e} is a zombie or husk:
+        return "zombie"
+    if {_e} is a drowned:
+        return "drowned"
+    if {_e} is a spider or cave spider:
+        return "spider"
+    if {_e} is a skeleton or stray:
+        return "skeleton"
+    if {_e} is an enderman:
+        return "enderman"
+    if {_e} is a witch:
+        return "witch"
+    return "zombie"
+
+function nlEsNoMuerto(tipo: text) :: boolean:
+    if {_tipo} is "zombie" or "skeleton" or "drowned" or "stray":
+        return true
+    return false
+
+# ------------------------------------------------------------------------------
+# 4. SISTEMA DE BOSSBAR CON TEMPORIZADOR EN MINUTOS Y COLOR COLOREADO
+# ------------------------------------------------------------------------------
+function nlActivarBossBarRuptura(duracion_minutos: integer):
+    set {nl::evento::ruptura_segundos} to ({_duracion_minutos} * 60)
+    set {_bar} to bossbar with id "nl_ruptura_bar"
+    if {_bar} is not set:
+        set {_bar} to bossbar with id "nl_ruptura_bar" with title colored "&4&l🌌 LA RUPTURA DEL NETHER &7| &c&lINVASIÓN EN CURSO"
+        set bossbar color of {_bar} to red
+        set bossbar style of {_bar} to solid bar
+    set bossbar progress of {_bar} to 100
+    loop all players in world "world":
+        add loop-player to bossbar players of {_bar}
+
+function nlDesactivarBossBarRuptura():
+    delete bossbar with id "nl_ruptura_bar"
+    set {nl::evento::ruptura_segundos} to 0
+
+every 1 second in world "world":
+    if {nl::evento::ruptura_activa} is true:
+        if {nl::evento::ruptura_segundos} > 0:
+            remove 1 from {nl::evento::ruptura_segundos}
+            
+            # Formateo de Minutos y Segundos para el Título
+            set {_min} to floor({nl::evento::ruptura_segundos} / 60)
+            set {_seg} to mod({nl::evento::ruptura_segundos}, 60)
+            set {_str_seg} to "%{_seg}%"
+            if {_seg} < 10:
+                set {_str_seg} to "0%{_seg}%"
+                
+            set {_bar} to bossbar with id "nl_ruptura_bar"
+            set bossbar title of {_bar} to colored "&4&l🌌 LA RUPTURA DEL NETHER &7| &eTiempo restante: &f%{_min}%m %{_str_seg}%s"
+            
+            # Ajuste progresivo de la barra visual
+            set {_prog} to ({nl::evento::ruptura_segundos} / 900) * 100
+            if {_prog} < 0:
+                set {_prog} to 0
+            if {_prog} > 100:
+                set {_prog} to 100
+            set bossbar progress of {_bar} to {_prog}
+        else:
+            set {nl::evento::ruptura_activa} to false
+            nlDesactivarBossBarRuptura()
+            loop all players in world "world":
+                send colored "&a&l=========================================" to loop-player
+                send colored "&a&l  ✔ ¡LA RUPTURA DEL NETHER HA TERMINADO!" to loop-player
+                send colored "&7  Las fisuras se han cerrado y los monstruos se dispersan." to loop-player
+                send colored "&a&l=========================================" to loop-player
+                play sound "entity.player.levelup" with volume 0.8 and pitch 1.0 to loop-player
+
+on join:
+    if world of player is world "world":
+        if {nl::evento::ruptura_activa} is true:
+            add player to bossbar players of bossbar with id "nl_ruptura_bar"
+
+on world change:
+    if world of player is world "world":
+        if {nl::evento::ruptura_activa} is true:
+            add player to bossbar players of bossbar with id "nl_ruptura_bar"
+    else:
+        remove player from bossbar players of bossbar with id "nl_ruptura_bar"
+
+# ------------------------------------------------------------------------------
+# 5. BLOQUEO DE SUEÑO DURANTE LA RUPTURA (ANTI-SUEÑO ABISAL)
+# ------------------------------------------------------------------------------
+on rightclick:
+    if event-block is set:
+        if "%type of event-block%" contains "bed":
+            if world of player is world "world":
+                if {nl::evento::ruptura_activa} is true:
+                    cancel event
+                    send action bar "&4&l🩸 Una fuerza abisal impide que puedas descansar..." to player
+                    play sound "entity.wither.ambient" with volume 0.8 and pitch 0.6 at location of player
+
+# ------------------------------------------------------------------------------
+# 6. ASIGNACIÓN DE TIERS Y ETIQUETAS NATIVAS (SCOREBOARD TAGS)
+# ------------------------------------------------------------------------------
+function nlAplicarElite(e: entity, tipo: text, tier: integer):
+    if {_e} is not alive:
+        stop
+
+    add "nl_elite" to scoreboard tags of {_e}
+    add "nl_tier_%{_tier}%" to scoreboard tags of {_e}
+    add "nl_tipo_%{_tipo}%" to scoreboard tags of {_e}
+
+    set metadata tag "nl_elite" of {_e} to true
+    set metadata tag "nl_tier" of {_e} to {_tier}
+    set metadata tag "nl_tipo" of {_e} to {_tipo}
+    set metadata tag "nl_cd_hab" of {_e} to 20 seconds ago
+
+    if {_tier} is 1:
+        set max health of {_e} to 35
+        set health of {_e} to 35
+        apply resistance 1 to {_e} for 999 days
+    else if {_tier} is 2:
+        set max health of {_e} to 55
+        set health of {_e} to 55
+        apply resistance 1 to {_e} for 999 days
+        apply strength 1 to {_e} for 999 days
+        if {_tipo} is "zombie" or "skeleton":
+            set helmet of {_e} to iron helmet
+    else if {_tier} is 3:
+        set max health of {_e} to 75
+        set health of {_e} to 75
+        apply resistance 2 to {_e} for 999 days
+        apply strength 1 to {_e} for 999 days
+        apply speed 1 to {_e} for 999 days
+        if {_tipo} is "zombie" or "skeleton":
+            set helmet of {_e} to golden helmet
+            set chestplate of {_e} to golden chestplate
+    else if {_tier} is 4:
+        set max health of {_e} to 100
+        set health of {_e} to 100
+        apply resistance 2 to {_e} for 999 days
+        apply strength 2 to {_e} for 999 days
+        apply speed 1 to {_e} for 999 days
+        if {_tipo} is "zombie" or "skeleton":
+            set helmet of {_e} to diamond helmet
+            set chestplate of {_e} to diamond chestplate
+    else if {_tier} is 5:
+        set max health of {_e} to 150
+        set health of {_e} to 150
+        apply resistance 3 to {_e} for 999 days
+        apply strength 2 to {_e} for 999 days
+        apply speed 2 to {_e} for 999 days
+        apply fire resistance 1 to {_e} for 999 days
+        if {_tipo} is "zombie" or "skeleton":
+            set helmet of {_e} to netherite helmet
+            set chestplate of {_e} to netherite chestplate
+
+    nlActualizarNametag({_e}, health of {_e})
+
+function nlActualizarNametag(e: entity, vida: number):
+    if metadata tag "nl_elite" of {_e} is not set:
+        stop
+    set {_tier} to metadata tag "nl_tier" of {_e}
+    set {_tipo} to metadata tag "nl_tipo" of {_e}
+    
+    set {_v} to (round({_vida} * 10)) / 10
+    if {_v} <= 0:
+        stop
+        
+    set {_pct} to {_vida} / max health of {_e}
+    set {_col} to "&a"
+    if {_pct} <= 0.3:
+        set {_col} to "&c"
+    else if {_pct} <= 0.6:
+        set {_col} to "&e"
+
+    set {_tag} to "&c[T1] Feroz"
+    if {_tier} is 2:
+        set {_tag} to "&6&l[T2] Colosal"
+    else if {_tier} is 3:
+        set {_tag} to "&e&l👑 [T3] REY"
+    else if {_tier} is 4:
+        set {_tag} to "&4&l☠ [T4] ABISAL"
+    else if {_tier} is 5:
+        set {_tag} to "&5&l⚡ [T5] CATACLISMO"
+
+    set name of {_e} to "%{_tag}% &f%{_tipo}% &8[%{_col}%%{_v}%❤&8]"
+
+# ------------------------------------------------------------------------------
+# 7. GENERACIÓN POR EVENTOS & CONTROL DE LUZ SOL/SUPERFICIE (ZERO CPU)
+# ------------------------------------------------------------------------------
+on spawn of zombie, husk, drowned, spider, cave spider, skeleton, stray, enderman or witch:
+    if event-world is world "world":
+        if spawn reason is natural:
+            if metadata tag "nl_procesado" of event-entity is not set:
+                set metadata tag "nl_procesado" of event-entity to true
+                
+                # --- CONTROL DE DENSIDAD: MÁXIMO 8 ÉLITES POR CHUNK ---
+                set {_ch} to chunk at event-location
+                set {_elites_chunk} to 0
+                loop entities in {_ch}:
+                    if loop-entity has scoreboard tag "nl_elite":
+                        add 1 to {_elites_chunk}
+                if {_elites_chunk} >= 8:
+                    stop # Se mantiene como Tier 0 Vanilla normal
+                
+                set {_tipo} to nlGetTipoMob(event-entity)
+
+                # --- CASO 1: RUPTURA DEL NETHER (TIERS 1 AL 5 POTENCIADOS) ---
+                if {nl::evento::ruptura_activa} is true:
+                    set {_r} to random integer between 1 and 100
+                    if {_r} <= 20:
+                        nlAplicarElite(event-entity, {_tipo}, 1)
+                    else if {_r} <= 45:
+                        nlAplicarElite(event-entity, {_tipo}, 2)
+                    else if {_r} <= 70:
+                        nlAplicarElite(event-entity, {_tipo}, 3)
+                    else if {_r} <= 90:
+                        nlAplicarElite(event-entity, {_tipo}, 4)
+                    else:
+                        nlAplicarElite(event-entity, {_tipo}, 5)
+                    stop
+
+                set {_t} to time of world "world"
+                set {_roll} to random integer between 1 and 100
+
+                # --- CASO 2: DÍA NORMAL (CUEVAS T0 A T3, SUPERFICIE LIMPIA) ---
+                if {_t} >= 06:00:
+                    if {_t} <= 18:00:
+                        if sunlight level at location of event-entity >= 13:
+                            cancel event # Limpia superficie de día
+                            stop
+                        if {_roll} <= 40:
+                            stop # Tier 0 Vanilla Normal
+                        else if {_roll} <= 70:
+                            nlAplicarElite(event-entity, {_tipo}, 1)
+                        else if {_roll} <= 90:
+                            nlAplicarElite(event-entity, {_tipo}, 2)
+                        else:
+                            nlAplicarElite(event-entity, {_tipo}, 3)
+                        stop
+
+                # --- CASO 3: NOCHE EN SUPERFICIE Y CUEVAS (TIERS 0 AL 3) ---
+                if {_roll} <= 40:
+                    stop # Se queda como Tier 0 Vanilla normal
+                else if {_roll} <= 70:
+                    nlAplicarElite(event-entity, {_tipo}, 1)
+                else if {_roll} <= 90:
+                    nlAplicarElite(event-entity, {_tipo}, 2)
+                else:
+                    nlAplicarElite(event-entity, {_tipo}, 3)
+
+# --- ELIMINACIÓN POR SOL / SUPERFICIE DE DÍA (100% EVENTOS - CERO LOOPS) ---
+on combust:
+    if metadata tag "nl_elite" of event-entity is set:
+        set {_t} to time of world "world"
+        if {_t} >= 06:00:
+            if {_t} <= 18:00:
+                if sunlight level at location of event-entity >= 13:
+                    cancel event
+                    make 15 of smoke at location of event-entity
+                    delete event-entity
+
+on target:
+    if metadata tag "nl_elite" of entity is set:
+        set {_t} to time of world "world"
+        if {_t} >= 06:00:
+            if {_t} <= 18:00:
+                if sunlight level at location of entity >= 13:
+                    cancel event
+                    make 15 of smoke at location of entity
+                    delete entity
+
+on chunk load:
+    set {_t} to time of world "world"
+    loop entities in event-chunk:
+        if loop-entity has scoreboard tag "nl_elite":
+            if {_t} >= 06:00:
+                if {_t} <= 18:00:
+                    if sunlight level at location of loop-entity >= 13:
+                        make 15 of smoke at location of loop-entity
+                        delete loop-entity
+                        continue
+            if metadata tag "nl_elite" of loop-entity is not set:
+                set {_tier} to 1
+                if loop-entity has scoreboard tag "nl_tier_5":
+                    set {_tier} to 5
+                else if loop-entity has scoreboard tag "nl_tier_4":
+                    set {_tier} to 4
+                else if loop-entity has scoreboard tag "nl_tier_3":
+                    set {_tier} to 3
+                else if loop-entity has scoreboard tag "nl_tier_2":
+                    set {_tier} to 2
+                nlAplicarElite(loop-entity, nlGetTipoMob(loop-entity), {_tier})
+
+# ------------------------------------------------------------------------------
+# 8. MOTOR DE COMBATE POR EVENTOS (ZERO LAG & VANILLA ENCHANTS)
+# ------------------------------------------------------------------------------
+function nlActivarTrampaRey(rey: entity, objetivo: player):
+    if {_rey} is not alive:
+        stop
+    strike lightning effect at location of {_rey}
+    play sound "entity.wither.spawn" with volume 0.8 and pitch 1.2 at location of {_rey}
+    
+    loop 3 times:
+        wait 1 tick
+        if {_rey} is not alive:
+            stop
+        set {_loc} to location of {_rey}
+        add (random integer between -2 and 2) to x-coordinate of {_loc}
+        add (random integer between -2 and 2) to z-coordinate of {_loc}
+        spawn 1 of zombie at {_loc}
+        set {_guardia} to last spawned zombie
+        nlAplicarElite({_guardia}, "zombie", 2)
+        set name of {_guardia} to "&6&l[Guardia Real] &c&l55❤"
+        set target of {_guardia} to {_objetivo}
+        make 15 of smoke at {_loc}
+
+on damage of a monster:
+    if metadata tag "nl_elite" of victim is set:
+        set {_e} to victim
+        set {_tier} to metadata tag "nl_tier" of {_e}
+        set {_tipo} to metadata tag "nl_tipo" of {_e}
+
+        if attacker is a player:
+            set {_arma} to attacker's tool
+            set {_filo} to enchantment level of sharpness of {_arma}
+            set {_poder} to enchantment level of power of {_arma}
+            set {_castigo} to enchantment level of smite of {_arma}
+            
+            if {_filo} > 0:
+                add ({_filo} * 0.8) to damage
+            if {_poder} > 0:
+                add ({_poder} * 1.0) to damage
+            if {_castigo} > 0:
+                if nlEsNoMuerto({_tipo}) is true:
+                    add ({_castigo} * 1.5) to damage
+
+        set {_hp_actual} to health of {_e} - damage
+        if {_hp_actual} > 0:
+            nlActualizarNametag({_e}, {_hp_actual})
+            
+            if ({_hp_actual} / max health of {_e}) <= 0.35:
+                if metadata tag "nl_furioso" of {_e} is not set:
+                    set metadata tag "nl_furioso" of {_e} to true
+                    make 15 of angry_villager at location 1.5 meters above {_e}
+                    play sound "entity.ender_dragon.growl" with volume 0.8 and pitch 1.2 at location of {_e}
+                    apply speed 2 to {_e} for 8 seconds
+                    apply strength 2 to {_e} for 8 seconds
+
+            if {_tier} >= 3:
+                if attacker is a player:
+                    if ({_hp_actual} / max health of {_e}) <= 0.50:
+                        if metadata tag "nl_trampa_rey" of {_e} is not set:
+                            set metadata tag "nl_trampa_rey" of {_e} to true
+                            nlActivarTrampaRey({_e}, attacker)
+
+            if {_tipo} is "spider":
+                if {_tier} >= 3:
+                    if difference between (metadata tag "nl_cd_hab" of {_e}) and now >= 8 seconds:
+                        set metadata tag "nl_cd_hab" of {_e} to now
+                        push {_e} upwards at speed 0.5
+                        if attacker is a player:
+                            push {_e} in direction of attacker at speed 1.1
+
+on damage of player:
+    if attacker is a monster:
+        if metadata tag "nl_elite" of attacker is set:
+            # Validación extra: si pega en superficie de día, se esfuma y se cancela
+            set {_t} to time of world "world"
+            if {_t} >= 06:00:
+                if {_t} <= 18:00:
+                    if sunlight level at location of attacker >= 13:
+                        cancel event
+                        make 15 of smoke at location of attacker
+                        delete attacker
+                        stop
+
+            set {_tier} to metadata tag "nl_tier" of attacker
+            if {_tier} is 2:
+                add 1.5 to damage
+            else if {_tier} is 3:
+                add 3 to damage
+            else if {_tier} is 4:
+                add 5 to damage
+            else if {_tier} is 5:
+                add 8 to damage
+
+# ------------------------------------------------------------------------------
+# 9. BOTÍN DINÁMICO POR TIERS Y RACHAS DE SUPERVIVENCIA
+# ------------------------------------------------------------------------------
+on death of a monster:
+    if metadata tag "nl_elite" of victim is set:
+        set {_e} to victim
+        set {_tier} to metadata tag "nl_tier" of {_e}
+        
+        if attacker is not a player:
+            clear drops
+            stop
+            
+        set {_killer} to attacker
+        add 1 to {nl::stats::kills::%uuid of {_killer}%}
+        
+        # Botín Semi-vanilla ampliado por Tiers
+        if {_tier} is 1:
+            drop (random integer between 1 and 3) of iron ingot at location of {_e}
+            drop 4 of arrow at location of {_e}
+        else if {_tier} is 2:
+            drop (random integer between 2 and 4) of iron ingot at location of {_e}
+            drop (random integer between 1 and 2) of gold ingot at location of {_e}
+            drop 4 of lapis lazuli at location of {_e}
+        else if {_tier} is 3:
+            drop (random integer between 3 and 6) of gold ingot at location of {_e}
+            drop 1 of diamond at location of {_e}
+            drop 1 of golden apple at location of {_e}
+        else if {_tier} is 4:
+            drop (random integer between 2 and 3) of diamond at location of {_e}
+            drop 4 of emerald at location of {_e}
+            drop 3 of experience bottle at location of {_e}
+        else if {_tier} is 5:
+            drop 1 of diamond block at location of {_e}
+            drop 1 of iron block at location of {_e}
+            drop 1 of ancient debris at location of {_e}
+
+        # --- TROFEOS ESCALABLES POR TIERS ---
+        set {_roll} to random integer between 1 and 100
+        set {_req} to 0
+        set {_val} to 0
+        set {_nombre_trofeo} to "&6&lTrofeo Elite Tier 2"
+        
+        if {_tier} is 2:
+            set {_req} to 10 # 10% probabilidad
+            set {_val} to 250
+            set {_nombre_trofeo} to "&6&lTrofeo Elite Tier 2"
+        else if {_tier} is 3:
+            set {_req} to 5  # 5% probabilidad
+            set {_val} to 600
+            set {_nombre_trofeo} to "&e&l👑 Trofeo Real Tier 3"
+        else if {_tier} is 4:
+            set {_req} to 2  # 2% probabilidad
+            set {_val} to 1500
+            set {_nombre_trofeo} to "&4&l☠ Trofeo Abisal Tier 4"
+        else if {_tier} is 5:
+            set {_req} to 1  # 1% probabilidad
+            set {_val} to 4000
+            set {_nombre_trofeo} to "&5&l⚡ Trofeo Cataclismo Tier 5"
+
+        if {_tier} >= 2:
+            if {_roll} <= {_req}:
+                set {_trofeo} to golden carrot named "%{_nombre_trofeo}%"
+                set lore of {_trofeo} to "&7Emblema legendario obtenido al derrotar" and "&7a un monstruo &cTier %{_tier}%&7 en world." and "" and "&e• Valor Base: &a$%{_val}%.00" and "&e• Rareza: &6Muy Alta" and "" and "&a▶ Véndelo en /trofeos (Clic en Mercado)"
+                drop {_trofeo} at location of {_e}
+                play sound "entity.player.levelup" with volume 0.7 and pitch 1.5 at location of {_killer}
+                send "&6&l[!] &e¡El %name of {_e}% &eha soltado un %{_nombre_trofeo}%&e!" to {_killer}
+
+        if {_tier} >= 3:
+            loop all players in world "world":
+                send "&6⚔ &l%{_killer}'s name% &eha derrotado a un &l%{_tier}% &8(&cTier %{_tier}%&8)" to loop-player
+
+on death of a player:
+    if event-world is world "world":
+        set {_u} to uuid of victim
+        set {_dias} to ({nl::stats::racha::%{_u}%}) ? 0
+        if {_dias} > 0:
+            send "&c&l☠ Has muerto en world. Tu racha de &e%{_dias}% días &cha terminado." to victim
+        set {nl::stats::racha::%{_u}%} to 0
+
+every 20 minutes in world "world":
+    loop all players in world "world":
+        set {_u} to uuid of loop-player
+        add 1 to {nl::stats::racha::%{_u}%}
+        set {_actual} to {nl::stats::racha::%{_u}%}
+        set {_max} to ({nl::stats::racha_max::%{_u}%}) ? 0
+        if {_actual} > {_max}:
+            set {nl::stats::racha_max::%{_u}%} to {_actual}
+        send action bar "&a&l🔥 Racha de Supervivencia: &e%{_actual}% días &7(+1 día completado)" to loop-player
+
+# ------------------------------------------------------------------------------
+# 10. TABLA DE LÍDERES, ESTADÍSTICAS Y VENTA DE TROFEOS (/CAZADOR & /TOPMOBS)
+# ------------------------------------------------------------------------------
+command /cazador:
+    aliases: /elites, /topmobs, /trofeos
+    trigger:
+        if sender is console:
+            send "&cSolo jugadores." to sender
+            stop
+        nlAbrirMenuCazador(player)
+
+function nlAbrirMenuCazador(p: player):
+    set {_gui} to a new chest inventory with 4 rows named "&8🌿 &a&lCAZADOR &8| &eTop Líderes"
+    loop 36 times:
+        set slot (loop-number - 1) of {_gui} to gray stained glass pane named " "
+        
+    set {_u} to uuid of {_p}
+    set {_racha} to ({nl::stats::racha::%{_u}%}) ? 0
+    set {_racha_max} to ({nl::stats::racha_max::%{_u}%}) ? 0
+    set {_kills} to ({nl::stats::kills::%uuid of {_p}%}) ? 0
+    
+    set slot 10 of {_gui} to skull of {_p} named "&6&lTU PERFIL DE CAZADOR" with lore "&7• Élites eliminados: &e%{_kills}%" and "&7• Racha actual: &a%{_racha}% días" and "&7• Récord personal: &6%{_racha_max}% días"
+    
+    # --- BOTÓN INTERACTIVO DE VENTA DE TROFEOS EN EL SLOT 12 ---
+    set slot 12 of {_gui} to golden carrot named "&6&lMERCADO DE TROFEOS &8(&a&lVENDER TODO&8)" with lore "&7• Valores unitarios por Tier:" and "&a  - Tier 2: &f$250" and "&a  - Tier 3: &f$600" and "&a  - Tier 4: &f$1,500" and "&a  - Tier 5: &f$4,000" and "" and "&e▶ Clic Izquierdo para VENDER TODOS" and "&e  los trofeos de tu inventario."
+
+    set {_count} to 1
+    loop {nl::stats::kills::*}:
+        set {_scores::%loop-index%} to loop-value
+        
+    loop 3 times:
+        set {_max} to 0
+        set {_top_uuid} to "Nadie"
+        loop {_scores::*}:
+            if loop-value-2 > {_max}:
+                set {_max} to loop-value-2
+                set {_top_uuid} to loop-index
+        if {_max} > 0:
+            set {_p_name} to {_top_uuid} parsed as offline player
+            set slot (13 + {_count}) of {_gui} to nether star named "&e&l🏆 TOP %{_count}% CAZADOR" with lore "&fJugador: &a%{_p_name}%" and "&fTotal Élites: &6%{_max}% kills"
+            delete {_scores::%{_top_uuid}%}
+            add 1 to {_count}
+        else if {_count} is 1:
+            set slot 14 of {_gui} to barrier named "&cSin récords aún" with lore "&7¡Sal a cazar monstruos para ser el #1!"
+            exit loop
+            
+    open {_gui} to {_p}
+
+# --- FUNCIÓN DE VENTA DE TROFEOS AL HACER CLIC ---
+function nlVenderTrofeos(p: player):
+    set {_total_money} to 0
+    set {_trofeos_vendidos} to 0
+    
+    loop items in {_p}'s inventory:
+        set {_n} to name of loop-item
+        if {_n} contains "Trofeo Elite Tier 2":
+            set {_amt} to item amount of loop-item
+            add ({_amt} * 250) to {_total_money}
+            add {_amt} to {_trofeos_vendidos}
+            remove loop-item from {_p}'s inventory
+        else if {_n} contains "Trofeo Real Tier 3":
+            set {_amt} to item amount of loop-item
+            add ({_amt} * 600) to {_total_money}
+            add {_amt} to {_trofeos_vendidos}
+            remove loop-item from {_p}'s inventory
+        else if {_n} contains "Trofeo Abisal Tier 4":
+            set {_amt} to item amount of loop-item
+            add ({_amt} * 1500) to {_total_money}
+            add {_amt} to {_trofeos_vendidos}
+            remove loop-item from {_p}'s inventory
+        else if {_n} contains "Trofeo Cataclismo Tier 5":
+            set {_amt} to item amount of loop-item
+            add ({_amt} * 4000) to {_total_money}
+            add {_amt} to {_trofeos_vendidos}
+            remove loop-item from {_p}'s inventory
+            
+    if {_trofeos_vendidos} > 0:
+        add {_total_money} to {_p}'s balance
+        play sound "entity.player.levelup" with volume 0.8 and pitch 1.3 to {_p}
+        send "&8[&a&lNATURE&e&lLAND&8] &a¡Has vendido &e%{_trofeos_vendidos}% &atrofeos por &a$%{_total_money}%.00&a!" to {_p}
+    else:
+        play sound "entity.villager.no" with volume 0.8 and pitch 1.0 to {_p}
+        send "&8[&a&lNATURE&e&lLAND&8] &cNo tienes ningún trofeo en tu inventario para vender." to {_p}
+
+# ------------------------------------------------------------------------------
+# 11. ENCICLOPEDIA COMERCIAL GUI (/MOBPEDIA O /MOBSINFO)
+# ------------------------------------------------------------------------------
+command /mobpedia:
+    aliases: /mobsinfo, /elitemobs, /infolites
+    trigger:
+        if sender is console:
+            send "&cSolo jugadores." to sender
+            stop
+        nlAbrirMobpedia(player)
+
+function nlAbrirMobpedia(p: player):
+    set {_gui} to a new chest inventory with 3 rows named "&8📖 &2&lMOBPEDIA &8| &7Guía Abisal"
+    loop 27 times:
+        set slot (loop-number - 1) of {_gui} to black stained glass pane named " "
+
+    set slot 10 of {_gui} to zombie head named "&c&l[Tier 1] Feroz" with lore "&7• Dificultad: &aBaja" and "&7• Vida: &c35❤" and "&e• Botín: &fHierro, Carbón, Flechas"
+    set slot 11 of {_gui} to skeleton skull named "&6&l[Tier 2] Colosal" with lore "&7• Dificultad: &eMedia" and "&7• Vida: &c55❤" and "&e• Botín: &fHierro/Oro | &6Trofeo ($250)"
+    set slot 12 of {_gui} to creeper head named "&e&l👑 [Tier 3] REY" with lore "&7• Dificultad: &6Alta" and "&7• Vida: &c75❤" and "&6▶ Habilidad: &fInvocación Guardia Real" and "&e• Botín: &fOro/Diamante | &6Trofeo ($600)"
+    set slot 13 of {_gui} to wither skeleton skull named "&4&l☠ [Tier 4] ABISAL" with lore "&7• Dificultad: &cExtrema (Solo Ruptura)" and "&7• Vida: &c100❤" and "&e• Botín: &fDiamantes/Esmeraldas | &6Trofeo ($1,500)"
+    set slot 14 of {_gui} to dragon head named "&5&l⚡ [Tier 5] CATACLISMO" with lore "&7• Dificultad: &4&lPESADILLA (Ruptura)" and "&7• Vida: &c150❤" and "&e• Botín: &fBloques/Escombros | &6Trofeo ($4,000)"
+    
+    open {_gui} to {_p}
+
+# BLOQUEO DE ROBO DE ITEMS Y DETECCIÓN DE VENTA DE TROFEOS EN GUI
+on inventory click:
+    if name of event-inventory is "&8📖 &2&lMOBPEDIA &8| &7Guía Abisal":
+        cancel event
+    else if name of event-inventory is "&8🌿 &a&lCAZADOR &8| &eTop Líderes":
+        cancel event
+        if clicked slot is empty:
+            stop
+        if index of event-slot is 12:
+            close player's inventory
+            nlVenderTrofeos(player)
+
+# ------------------------------------------------------------------------------
+# 12. PANEL DE CONTROL ADMIN & BOTÓN MENÚ HUEVOS (/PANELSS)
+# ------------------------------------------------------------------------------
+command /panelss:
+    aliases: /mobsadmin, /elitesadmin
+    permission: admin.mobs
+    permission message: &cNo tienes permisos de administrador.
+    trigger:
+        if sender is console:
+            send "&cSolo jugadores." to sender
+            stop
+        nlAbrirPanelAdmin(player)
+
+function nlAbrirPanelAdmin(p: player):
+    set {_gui} to a new chest inventory with 3 rows named "&8⚙ &4&lPANEL ADMIN &8| &cElite Mobs"
+    loop 27 times:
+        set slot (loop-number - 1) of {_gui} to black stained glass pane named " "
+
+    set {_st_rup} to "&c&lDESACTIVADA"
+    if {nl::evento::ruptura_activa} is true:
+        set {_st_rup} to "&a&lACTIVA (%floor({nl::evento::ruptura_segundos} / 60)% min)"
+        
+    set slot 10 of {_gui} to netherrack named "&4&l1. RUPTURA DEL NETHER (15 MIN)" with lore "&7Estado actual: %{_st_rup}%" and "" and "&e[Clic Izq] &aForzar Inicio (Atardecer + Timer)" and "&e[Clic Der] &cDetener Evento"
+    set slot 12 of {_gui} to barrier named "&4&l2. PURGAR ÉLITES" with lore "&7Elimina al instante todos los monstruos" and "&7élite activos sin causar lag." and "" and "&c▶ Clic para purgar en world"
+    set slot 16 of {_gui} to dragon egg named "&d&l🛠 MENÚ DE HUEVOS POR TIERS (1 AL 5)" with lore "&7Abre el menú para elegir cualquier" and "&7Huevo Elite de los Tiers 1 al 5." and "" and "&a▶ Clic para abrir el selector de huevos"
+
+    open {_gui} to {_p}
+
+on inventory click:
+    if name of event-inventory is "&8⚙ &4&lPANEL ADMIN &8| &cElite Mobs":
+        cancel event
+        if clicked slot is empty:
+            stop
+            
+        set {_p} to player
+        if index of event-slot is 10:
+            if click type is left mouse button:
+                close {_p}'s inventory
+                nlForzarInicioRuptura()
+                send "&a[Admin] Has activado la Ruptura del Nether por 15 minutos." to {_p}
+            else:
+                set {nl::evento::ruptura_activa} to false
+                nlDesactivarBossBarRuptura()
+                send "&c[Admin] Ruptura del Nether cancelada." to {_p}
+                nlAbrirPanelAdmin({_p})
+        else if index of event-slot is 12:
+            close {_p}'s inventory
+            execute {_p} command "killelites"
+        else if index of event-slot is 16:
+            nlAbrirMenuHuevos({_p})
+
+# ------------------------------------------------------------------------------
+# 13. MENÚ DE HUEVOS COMPLETO (TIERS 1 AL 5 PARA CADA MOB)
+# ------------------------------------------------------------------------------
+function nlAbrirMenuHuevos(p: player):
+    set {_gui} to a new chest inventory with 6 rows named "&8d &5&lHUEVOS ELITE &8| &dTiers 1 al 5"
+    loop 54 times:
+        set slot (loop-number - 1) of {_gui} to black stained glass pane named " "
+
+    loop 5 times:
+        set {_t} to loop-number
+        set slot (9 + {_t}) of {_gui} to zombie spawn egg named "&a&l[Egg] &fZombie Tier %{_t}%" with lore "&7Spawnea un Zombie T%{_t}%." and "" and "&e▶ Clic Izquierdo para recibir"
+    loop 5 times:
+        set {_t} to loop-number
+        set slot (18 + {_t}) of {_gui} to skeleton spawn egg named "&6&l[Egg] &fSkeleton Tier %{_t}%" with lore "&7Spawnea un Skeleton T%{_t}%." and "" and "&e▶ Clic Izquierdo para recibir"
+    loop 5 times:
+        set {_t} to loop-number
+        set slot (27 + {_t}) of {_gui} to spider spawn egg named "&e&l[Egg] &fSpider Tier %{_t}%" with lore "&7Spawnea una Spider T%{_t}%." and "" and "&e▶ Clic Izquierdo para recibir"
+    loop 5 times:
+        set {_t} to loop-number
+        set slot (36 + {_t}) of {_gui} to witch spawn egg named "&4&l[Egg] &fWitch Tier %{_t}%" with lore "&7Spawnea una Witch T%{_t}%." and "" and "&e▶ Clic Izquierdo para recibir"
+    loop 5 times:
+        set {_t} to loop-number
+        set slot (45 + {_t}) of {_gui} to enderman spawn egg named "&5&l[Egg] &fEnderman Tier %{_t}%" with lore "&7Spawnea un Enderman T%{_t}%." and "" and "&e▶ Clic Izquierdo para recibir"
+
+    open {_gui} to {_p}
+
+on inventory click:
+    if name of event-inventory is "&8d &5&lHUEVOS ELITE &8| &dTiers 1 al 5":
+        cancel event
+        if clicked slot is empty:
+            stop
+            
+        set {_p} to player
+        set {_slot} to index of event-slot
+        
+        if {_slot} is between 10 and 14:
+            nlDarHuevoLimpio({_p}, "zombie", ({_slot} - 9))
+        else if {_slot} is between 19 and 23:
+            nlDarHuevoLimpio({_p}, "skeleton", ({_slot} - 18))
+        else if {_slot} is between 28 and 32:
+            nlDarHuevoLimpio({_p}, "spider", ({_slot} - 27))
+        else if {_slot} is between 37 and 41:
+            nlDarHuevoLimpio({_p}, "witch", ({_slot} - 36))
+        else if {_slot} is between 46 and 50:
+            nlDarHuevoLimpio({_p}, "enderman", ({_slot} - 45))
+
+function nlDarHuevoLimpio(p: player, tipo: text, tier: integer):
+    set {_egg} to zombie spawn egg
+    if {_tipo} is "skeleton":
+        set {_egg} to skeleton spawn egg
+    else if {_tipo} is "spider":
+        set {_egg} to spider spawn egg
+    else if {_tipo} is "witch":
+        set {_egg} to witch spawn egg
+    else if {_tipo} is "enderman":
+        set {_egg} to enderman spawn egg
+        
+    set name of {_egg} to "&a&l[Egg] &f%{_tipo}% Tier %{_tier}%"
+    set lore of {_egg} to "&7Huevo Elite Limpio:" and "&f• Tier: &6Nivel %{_tier}%" and "" and "&e[Clic Derecho en Bloque] &fSpawneado instantáneo."
+    give {_egg} to {_p}
+    play sound "entity.item.pickup" to {_p}
+    send "&a✔ Recibiste tu Huevo de %{_tipo}% Tier %{_tier}%." to {_p}
+
+# ------------------------------------------------------------------------------
+# 14. GENERACIÓN DIRECTA DE HUEVOS (SIN NBT ILÍCITOS)
+# ------------------------------------------------------------------------------
+on rightclick:
+    if event-block is set:
+        if player's tool is not air:
+            set {_tool} to name of player's tool
+            if {_tool} contains "[Egg]":
+                cancel event
+                set {_loc} to location of event-block
+                add 1 to y-coordinate of {_loc}
+                
+                set {_tipo} to "zombie"
+                if {_tool} contains "skeleton" or "Skeleton":
+                    set {_tipo} to "skeleton"
+                else if {_tool} contains "spider" or "Spider":
+                    set {_tipo} to "spider"
+                else if {_tool} contains "witch" or "Witch":
+                    set {_tipo} to "witch"
+                else if {_tool} contains "enderman" or "Enderman":
+                    set {_tipo} to "enderman"
+                    
+                set {_tier} to 1
+                if {_tool} contains "Tier 2":
+                    set {_tier} to 2
+                else if {_tool} contains "Tier 3":
+                    set {_tier} to 3
+                else if {_tool} contains "Tier 4":
+                    set {_tier} to 4
+                else if {_tool} contains "Tier 5":
+                    set {_tier} to 5
+
+                spawn 1 of zombie at {_loc}
+                set {_mob} to last spawned entity
+                if {_tipo} is "skeleton":
+                    spawn 1 of skeleton at {_loc}
+                    set {_mob} to last spawned entity
+                else if {_tipo} is "spider":
+                    spawn 1 of spider at {_loc}
+                    set {_mob} to last spawned entity
+                else if {_tipo} is "witch":
+                    spawn 1 of witch at {_loc}
+                    set {_mob} to last spawned entity
+                else if {_tipo} is "enderman":
+                    spawn 1 of enderman at {_loc}
+                    set {_mob} to last spawned entity
+
+                nlAplicarElite({_mob}, {_tipo}, {_tier})
+                if player's gamemode is not creative:
+                    remove 1 of player's tool from player's inventory
+                send "&a✔ Has spawneado un %{_tipo}% Tier %{_tier}%." to player
+
+# ------------------------------------------------------------------------------
+# 15. PURGA COMANDO (/KILLELITES) Y RUPTURA (ATARDECER + 15 MIN DE TIMER)
+# ------------------------------------------------------------------------------
+command /killelites:
+    permission: admin.mobs
+    trigger:
+        set {_count} to 0
+        set {_ticked} to 0
+        loop all entities in world "world":
+            if loop-entity has scoreboard tag "nl_elite":
+                kill loop-entity
+                add 1 to {_count}
+                add 1 to {_ticked}
+                if {_ticked} >= 25:
+                    set {_ticked} to 0
+                    wait 1 tick
+        send "&a[Admin] Se purgaron &e%{_count}% &amobs élite en world." to sender
+
+function nlForzarInicioRuptura():
+    set {nl::evento::ruptura_activa} to true
+    
+    # 1. Puesta de sol instantánea (Atardecer abisal ~ 17:30)
+    set time of world "world" to 17:30
+    
+    # 2. Mensajes de advertencia y tiempo de reacción
+    loop all players in world "world":
+        send colored "&4&l=========================================" to loop-player
+        send colored "&c&l  🌌 ¡LA RUPTURA DEL NETHER HA COMENZADO!" to loop-player
+        send colored "&7  El cielo se oscurece... &e¡Tienen unos minutos para huir!" to loop-player
+        send colored "&4&l=========================================" to loop-player
+        send "" to loop-player
+        send colored "&a🌍 &lInvasión temporal en world (&e15 minutos&a)." to loop-player
+        send colored "&eUsa &l/rtp &eo ve a tu refugio si no estás equipado." to loop-player
+        send "" to loop-player
+        play sound "entity.wither.spawn" with volume 0.8 and pitch 0.8 to loop-player
+        
+    # 3. Activación de BossBar de 15 minutos (15 * 60 = 900 segundos)
+    nlActivarBossBarRuptura(15)
+    
+    
+    
+    # ==============================================================================
+# 🔥 QUEMADURA POR LUZ ARTIFICIAL SOLO PARA MOBS DEL SKRIPT (ELITES)
+# Evento nativo de movimiento (100% event-driven, sin loops de tiempo)
+# ==============================================================================
+
+on entity move:
+    # 1. Filtramos solo las entidades que fueron generadas/procesadas por tu Skript
+    if metadata tag "nl_elite" of event-entity is set:
+        # Nota: También puedes usar 'if event-entity has scoreboard tag "nl_elite":'
+        
+        # 2. Revisa el nivel de luz de BLOQUES (antorchas, faroles, lava, etc.)
+        if block light level at location of event-entity > 8:
+            
+            # 3. Solo se enciende si no se está quemando actualmente
+            if event-entity is not burning:
+                ignite event-entity for 4 seconds
+                play sound "entity.zombie.burn" with volume 0.5 and pitch 1.2 at location of event-entity

@@ -1,0 +1,752 @@
+# =====================================================================
+#
+#    🏜 BROMAS DESIERTO: ILUSIÓN INFERNAL V7.8 🔥
+#   (SINTAXIS FIX: RECTIFICACIÓN DE LLAVES EN VARIABLES LOCALES)
+#
+# =====================================================================
+
+options:
+    prefix: <##FFA500>&l[&e🏜<##FFA500>&l]&e
+    duracion_segundos: 120
+    distancia_segura_spawn: 80
+    altura_cielo: 220
+
+# ==========================================
+# ⚡ PARCHE INTELIGENTE: CONTROL DE RETORNO AL ENTRAR
+# ==========================================
+on join:
+    set {_uuid} to uuid of player
+    
+    # CASO 1: El evento SIGUE ACTIVO y el jugador volvió antes de que terminara
+    if {-sandstorm::active::%{_uuid}%} is set:
+        set fall distance of player to 0
+        set {_host} to {-sandstorm::host::%{_uuid}%}
+        set {_tp_loc} to {-sandstorm::sky_center::%{_host}%}
+        
+        loop 30 times:
+            if block at {_tp_loc} is air:
+                if block above {_tp_loc} is air:
+                    stop loop 
+            add 1 to y-coordinate of {_tp_loc}
+            
+        teleport player to {_tp_loc}
+        send "{@prefix} &c¡Intentaste escapar del purgatorio saliendo del juego, pero la tormenta te reclama!" to player
+        play sound "entity.enderman.teleport" with volume 1.0 and pitch 0.5 at player
+        stop
+
+    # CASO 2: El evento TERMINÓ MIENTRAS ESTABA FUERA. Lo regresamos a tierra a salvo.
+    if {-sandstorm::pending_return::%{_uuid}%} is set:
+        set fall distance of player to 0
+        set {_return_loc} to {-sandstorm::pending_return::%{_uuid}%}
+        
+        # Limpieza de las gafas/cascos especiales si le quedaron puestos
+        if name of helmet of player is "&6&lGAFAS DE ARENA" or "&c&lCABEZA ARDIENTE":
+            set helmet of player to air
+        if {-sandstorm::oldhelmet::%{_uuid}%} is set:
+            if {-sandstorm::oldhelmet::%{_uuid}%} is not air:
+                if gamemode of player is not creative:
+                    if helmet of player is air:
+                        set helmet of player to {-sandstorm::oldhelmet::%{_uuid}%}
+                    else:
+                        give {-sandstorm::oldhelmet::%{_uuid}%} to player
+            delete {-sandstorm::oldhelmet::%{_uuid}%}
+            
+        extinguish player
+        remove regeneration from player
+        remove absorption from player
+        
+        # Teletransporte seguro a la superficie
+        teleport player to {_return_loc}
+        apply resistance 5 to player for 5 seconds
+        
+        # Borramos el registro pendiente
+        delete {-sandstorm::pending_return::%{_uuid}%}
+        
+        send title "<##32CD32>&l🌿 DESPERTAR TARDÍO 🌿" with subtitle "&7El evento terminó mientras estabas fuera..." to player for 4 seconds
+        play sound "entity.player.splash" with volume 1.5 and pitch 1.2 at player
+
+# ==========================================
+# 1. PARCHES ANTI-EXPLOITS (ANTI-GRANJA)
+# ==========================================
+on break:
+    {-sandstorm::active::%uuid of player%} is set
+    cancel event
+    send "{@prefix} &c¡La tormenta es tan fuerte que no puedes picar nada!" to player
+
+on place:
+    {-sandstorm::active::%uuid of player%} is set
+    cancel event
+    send "{@prefix} &c¡El viento huracanado destruye lo que intentas colocar!" to player
+
+on drop:
+    {-sandstorm::active::%uuid of player%} is set
+    cancel event
+    send "{@prefix} &c¡El viento te arrebata las cosas! No puedes tirar nada." to player
+
+on inventory click:
+    {-sandstorm::active::%uuid of player%} is set
+    if clicked slot is 39: 
+        cancel event
+        send "{@prefix} &c¡Las gafas de arena están pegadas a tu rostro por el viento!" to player
+    if "%click type%" contains "shift":
+        cancel event
+        send "{@prefix} &cEl viento huracanado te impide organizar rápido tus cosas." to player
+
+on death of player:
+    {-sandstorm::active::%uuid of victim%} is set
+    set {-sandstorm::died::%uuid of victim%} to true
+    
+    if gamemode of victim is not creative:
+        loop drops:
+            set {_d} to loop-item
+            set {_d_name} to name of {_d}
+            if {_d_name} is not "&6&lGAFAS DE ARENA":
+                if {_d_name} is not "&c&lCABEZA ARDIENTE":
+                    add {_d} to {-sandstorm::saved_inv::%uuid of victim%::*}
+    
+    clear drops 
+    send "{@prefix} &c¡Te has calcinado en la tormenta! Pero el infierno sigue..." to victim
+
+# ==========================================
+# 2. PREVENCIÓN DE ESCAPE Y REAPARICIÓN
+# ==========================================
+on command:
+    {-sandstorm::active::%uuid of player%} is set
+    if command is not "arena" or "palocalor" or "escobazo" or "paloapagar":
+        if command is "spawn" or "tpa" or "tpahere" or "tp" or "home" or "warp" or "call":
+            cancel event
+            send "{@prefix} &c&l¡NO PUEDES HUIR DE LA ARENA!&7El viento te lo impide." to player
+            play sound "entity.blaze.shoot" with volume 0.6 and pitch 0.5 at player
+            stop
+        cancel event
+        send "{@prefix} &cTienes demasiada arena en los ojos para escribir..." to player
+
+on respawn:
+    if {-sandstorm::active::%uuid of player%} is set:
+        wait 1 tick 
+        teleport player to {-sandstorm::sky_center::%uuid of player%}
+        set helmet of player to orange wool named "&c&lCABEZA ARDIENTE"
+        send "{@prefix} &c&l¡LA MUERTE NO ES ESCAPE!&7Sigue quemándote en el cielo..." to player
+        play sound "item.flintandsteel.use" with volume 1.0 and pitch 0.5 at player
+    else:
+        if {-sandstorm::saved_inv::%uuid of player%::*} is set:
+            wait 5 ticks
+            set {_p} to player
+            set {_uuid} to uuid of {_p}
+            set {_respawn_loc} to location of {_p}
+            
+            set {_chest_loc} to location of {_respawn_loc}
+            add 1 to x-coordinate of {_chest_loc}
+            add 1 to z-coordinate of {_chest_loc}
+            set block at {_chest_loc} to chest
+            
+            set {_loc2} to location of {_chest_loc}
+            add 1 to x-coordinate of {_loc2}
+            set block at {_loc2} to chest
+            
+            set {_current_chest} to {_chest_loc}
+            set {_count} to 0
+            loop {-sandstorm::saved_inv::%{_uuid}%::*}:
+                add 1 to {_count}
+                if {_count} > 27:
+                    set {_current_chest} to {_loc2}
+                add loop-value-1 to inventory of block at {_current_chest}
+                
+            delete {-sandstorm::saved_inv::%{_uuid}%::*}
+            if {-sandstorm::oldhelmet::%{_uuid}%} is set:
+                add {-sandstorm::oldhelmet::%{_uuid}%} to inventory of block at {_chest_loc}
+                delete {-sandstorm::oldhelmet::%{_uuid}%}
+                 
+            send "{@prefix} &c&l¡TUS COSAS!&7Todo tu equipamiento recuperado está en los cofres a tu lado." to {_p}
+            play sound "block.chest.open" with volume 1.0 and pitch 0.8 at {_p}
+
+# ==========================================
+# 3. HERRAMIENTAS Y COMANDOS
+# ==========================================
+command /palocalor:
+    permission: op
+    trigger:
+        give player blaze rod named "<##FFA500>&l🏜 CETRO DEL DESIERTO 🏜"
+        send "{@prefix} &fHas recibido el cetro." to player
+
+command /paloapagar:
+    permission: op
+    trigger:
+        give player bone named "<##00BFFF>&l☂ PALO APAGAFUEGOS ☂"
+        send "{@prefix} &fHas recibido el apagador global." to player
+
+command /limpiararena:
+    permission: op
+    trigger:
+        delete {-sandstorm::lock::*}
+        delete {-sandstorm::active::*}
+        delete {-sandstorm::host::*}
+        delete {-sandstorm::arena_players::*}
+        delete {-sandstorm::time_left::*}
+        delete {-sandstorm::pending_return::*}
+        send "{@prefix} &aVariables de tormenta purgadas con éxito." to player
+
+on right click:
+    player's tool is set
+    set {_name} to name of player's tool
+    {_name} is set
+    if {_name} contains "CETRO DEL DESIERTO":
+        cancel event
+        set {_target} to targeted player
+        if {_target} is set:
+            iniciarArenaCielo({_target})
+        else:
+            iniciarArenaCielo(player)
+    else if {_name} contains "PALO APAGAFUEGOS":
+        cancel event
+        apagarTodasLasTormentas(player)
+
+on left click:
+    player's tool is set
+    set {_name} to name of player's tool
+    {_name} is set
+    if {_name} contains "CETRO DEL DESIERTO":
+        cancel event
+        set {_target} to targeted player
+        if {_target} is set:
+            detenerArenaCielo({_target})
+        else:
+            detenerArenaCielo(player)
+    else if {_name} contains "PALO APAGAFUEGOS":
+        cancel event
+        apagarTodasLasTormentas(player)
+
+function apagarTodasLasTormentas(admin: player):
+    set {_stopped} to 0
+    loop all players:
+        set {_uuid} to uuid of loop-player
+        if {-sandstorm::active::%{_uuid}%} is set:
+            detenerArenaCielo(loop-player)
+            add 1 to {_stopped}
+    if {_stopped} > 0:
+        send "{@prefix} &a&l¡SISTEMA APAGADO!&fSe detuvieron &e%{_stopped}% &ftormentas." to {_admin}
+    else:
+        send "{@prefix} &cNo hay ninguna tormenta activa en este momento." to {_admin}
+
+# ==========================================
+# 4. CONSTRUCTOR INTELIGENTE ANTI-LAG
+# ==========================================
+function iniciarArenaCielo(p: player):
+    set {_host_uuid} to uuid of {_p}
+    
+    if {-sandstorm::lock::%{_host_uuid}%} is set:
+        stop
+    set {-sandstorm::lock::%{_host_uuid}%} to true
+    
+    if {-sandstorm::active::%{_host_uuid}%} is set:
+        delete {-sandstorm::lock::%{_host_uuid}%}
+        stop
+        
+    set {_real_loc} to location of {_p}
+    set {_sky_loc} to location of {_real_loc}
+    set y-coordinate of {_sky_loc} to {@altura_cielo}
+    
+    if x-coordinate of {_real_loc} > 0:
+        if x-coordinate of {_real_loc} + 1050 > 7950:
+            remove 1000 from x-coordinate of {_sky_loc}
+        else:
+            add 1000 to x-coordinate of {_sky_loc}
+    else:
+        if x-coordinate of {_real_loc} - 1050 < -7950:
+            add 1000 to x-coordinate of {_sky_loc}
+        else:
+            remove 1000 from x-coordinate of {_sky_loc}
+            
+    if z-coordinate of {_real_loc} > 0:
+        if z-coordinate of {_real_loc} + 1050 > 7950:
+            remove 1000 from z-coordinate of {_sky_loc}
+        else:
+            add 1000 to z-coordinate of {_sky_loc}
+    else:
+        if z-coordinate of {_real_loc} - 1050 < -7950:
+            add 1000 to z-coordinate of {_sky_loc}
+        else:
+            remove 1000 from z-coordinate of {_sky_loc}
+            
+    set {_w1} to location of {_sky_loc}
+    add -18 to x-coordinate of {_w1}
+    add -18 to z-coordinate of {_w1}
+    set y-coordinate of {_w1} to ({@altura_cielo} - 25)
+    
+    set {_w2} to location of {_sky_loc}
+    add 18 to x-coordinate of {_w2}
+    add 18 to z-coordinate of {_w2}
+    set y-coordinate of {_w2} to ({@altura_cielo} + 26)
+    
+    set block at {_sky_loc} to smooth stone
+    
+    set {_blocks_built} to 0
+    loop blocks within {_w1} and {_w2}:
+        set {_x_dist} to abs(x-coordinate of loop-block - x-coordinate of {_sky_loc})
+        set {_z_dist} to abs(z-coordinate of loop-block - z-coordinate of {_sky_loc})
+        set {_y} to y-coordinate of loop-block
+        
+        set {_build_wall} to false
+        if {_x_dist} is 18:
+            set {_build_wall} to true
+        else if {_z_dist} is 18:
+            set {_build_wall} to true
+        else if {_y} is round({@altura_cielo} + 26):
+            set {_build_wall} to true
+            
+        if {_build_wall} is true:
+            set loop-block to random element out of red sandstone, orange stained glass and orange wool
+            add 1 to {_blocks_built}
+            if {_blocks_built} >= 800:
+                set {_blocks_built} to 0
+                wait 1 tick
+
+    set {_c1} to location of {_real_loc}
+    add -17 to x-coordinate of {_c1}
+    add -17 to z-coordinate of {_c1}
+    set y-coordinate of {_c1} to (y-coordinate of {_real_loc} - 24)
+    
+    set {_c2} to location of {_real_loc}
+    add 17 to x-coordinate of {_c2}
+    add 17 to z-coordinate of {_c2}
+    set y-coordinate of {_c2} to (y-coordinate of {_real_loc} + 25)
+    
+    set {_blocks_copied} to 0
+    loop blocks within {_c1} and {_c2}:
+        if loop-block is not air:
+            if loop-block is not chest or trapped chest or ender chest or barrel or shulker box:
+                set {_dx} to x-coordinate of loop-block - x-coordinate of {_real_loc}
+                set {_dy} to y-coordinate of loop-block - y-coordinate of {_real_loc}
+                set {_dz} to z-coordinate of loop-block - z-coordinate of {_real_loc}
+                
+                set {_target_loc} to location of {_sky_loc}
+                add {_dx} to x-coordinate of {_target_loc}
+                add {_dy} to y-coordinate of {_target_loc}
+                add {_dz} to z-coordinate of {_target_loc}
+                
+                set {_mat} to type of loop-block
+                set {_mat_str} to "%{_mat}%"
+                
+                set {_is_waterlogged} to false
+                if {_mat_str} contains "waterlogged" or "anegad" or "[waterlogged=true]":
+                    set {_is_waterlogged} to true
+                    replace all "waterlogged " with "" in {_mat_str}
+                    replace all "[waterlogged=true]" with "" in {_mat_str}
+                    replace all " anegada" with "" in {_mat_str}
+                    replace all " anegado" with "" in {_mat_str}
+
+                set {_is_slab} to false
+                if {_mat_str} contains "slab" or "losa":
+                    set {_is_slab} to true
+                
+                if {_mat_str} contains "water" or "agua": 
+                    set {_final_mat} to blue wool
+                else if {_mat_str} contains "lava":
+                    set {_final_mat} to orange wool
+                else if {_mat_str} contains "sand" or "arena":
+                    if {_mat_str} contains "red" or "roj":
+                        set {_final_mat} to red sandstone
+                    else:
+                        set {_final_mat} to sandstone
+                else if {_mat_str} contains "gravel" or "grava":
+                    set {_final_mat} to andesite
+                else if {_mat_str} contains "seagrass" or "kelp" or "alga" or "hierba":
+                    set {_final_mat} to dead bush
+                else if {_is_slab} is true:
+                    if {_mat_str} contains "jungle" or "jungla":
+                        set {_final_mat} to jungle planks
+                    else if {_mat_str} contains "spruce" or "abeto":
+                        set {_final_mat} to spruce planks
+                    else if {_mat_str} contains "birch" or "abedul":
+                        set {_final_mat} to birch planks
+                    else if {_mat_str} contains "dark oak" or "oscuro":
+                        set {_final_mat} to dark oak planks
+                    else if {_mat_str} contains "acacia":
+                        set {_final_mat} to acacia planks
+                    else if {_mat_str} contains "cherry" or "cerezo":
+                        set {_final_mat} to cherry planks
+                    else if {_mat_str} contains "stone" or "piedra":
+                        set {_final_mat} to stone
+                    else if {_mat_str} contains "cobble" or "adoquin":
+                        set {_final_mat} to cobblestone
+                    else if {_mat_str} contains "brick" or "ladrillo":
+                        set {_final_mat} to bricks
+                    else if {_mat_str} contains "copper" or "cobre":
+                        set {_final_mat} to copper block
+                    else:
+                        set {_final_mat} to oak planks 
+                else:
+                    if {_is_waterlogged} is true:
+                        set {_final_mat} to {_mat_str} parsed as item type
+                        if {_final_mat} is not set:
+                            set {_final_mat} to {_mat}
+                    else:
+                        set {_final_mat} to {_mat}
+                        
+                set block at {_target_loc} to {_final_mat}
+                
+        add 1 to {_blocks_copied}
+        if {_blocks_copied} >= 600:
+            set {_blocks_copied} to 0
+            wait 1 tick
+            
+    set {_safe_pet_loc} to location of {_real_loc}
+    add 20 to x-coordinate of {_safe_pet_loc} 
+    
+    loop all entities in radius 17 around {_real_loc}:
+        if loop-entity is not a player:
+            if loop-entity is not an item:
+                set {_ent_loc} to location of loop-entity
+                set {_dx_ent} to x-coordinate of {_ent_loc} - x-coordinate of {_real_loc}
+                set {_dy_ent} to y-coordinate of {_ent_loc} - y-coordinate of {_real_loc}
+                set {_dz_ent} to z-coordinate of {_ent_loc} - z-coordinate of {_real_loc}
+                
+                if {_dy_ent} is between -20 and 25:
+                    set {_fake_ent_loc} to location of {_sky_loc}
+                    add {_dx_ent} to x-coordinate of {_fake_ent_loc}
+                    add {_dy_ent} to y-coordinate of {_fake_ent_loc}
+                    add {_dz_ent} to z-coordinate of {_fake_ent_loc}
+                    
+                    spawn (type of loop-entity) at {_fake_ent_loc}
+                    set {_new_mob} to last spawned entity
+                    if name of loop-entity is set:
+                        set name of {_new_mob} to name of loop-entity
+                    add {_new_mob} to {-sandstorm::mobs::%{_host_uuid}%::*}
+                    
+                    if loop-entity is a wolf or a cat or a parrot:
+                        if owner of loop-entity is set:
+                            add loop-entity to {-sandstorm::saved_pets::%{_host_uuid}%::*}
+                            teleport loop-entity to {_safe_pet_loc}
+
+    set {_tp_loc} to location of {_sky_loc}
+    loop 30 times:
+        if block at {_tp_loc} is air:
+            if block above {_tp_loc} is air:
+                stop loop 
+        add 1 to y-coordinate of {_tp_loc} 
+
+    set {-sandstorm::time_left::%{_host_uuid}%} to {@duracion_segundos}
+    
+    loop all players in radius 32 around {_p}:
+        set {_v} to loop-player
+        set {_v_uuid} to uuid of {_v}
+        
+        set {-sandstorm::active::%{_v_uuid}%} to true
+        set {-sandstorm::host::%{_v_uuid}%} to {_host_uuid} 
+        set {-sandstorm::real_loc::%{_v_uuid}%} to location of {_v}
+        set {-sandstorm::sky_center::%{_v_uuid}%} to {_sky_loc}
+        add {_v} to {-sandstorm::arena_players::%{_host_uuid}%::*}
+        
+        send title "<##FFA500>&l🏜 ABDUCCIÓN MASIVA 🏜" with subtitle "&7El viento se los lleva a todos..." to {_v} for 4 seconds
+        play sound "entity.enderman.teleport" with volume 1.0 and pitch 0.5 at {_v}
+        
+        set {-sandstorm::oldhelmet::%{_v_uuid}%} to helmet of {_v}
+        set helmet of {_v} to orange stained glass named "&6&lGAFAS DE ARENA"
+        
+        set fall distance of {_v} to 0
+        teleport {_v} to {_tp_loc}
+        apply regeneration 2 to {_v} for 120 seconds
+        apply absorption 2 to {_v} for 120 seconds
+
+    wait 2 seconds
+    loop {-sandstorm::arena_players::%{_host_uuid}%::*}:
+        set {_v} to loop-value
+        if {_v} is online:
+            send title "<##FF4500>&l🔥 INFIERNO 🔥" with subtitle "&7¡La tormenta ha comenzado!" to {_v} for 3 seconds
+            play sound "entity.ender_dragon.growl" with volume 0.5 and pitch 0.8 at {_v}
+    
+    loop 480 times: 
+        if {-sandstorm::arena_players::%{_host_uuid}%::*} is not set:
+            stop loop
+            
+        loop {-sandstorm::arena_players::%{_host_uuid}%::*}:
+            set {_v} to loop-value-2
+            set {_v_uuid} to uuid of {_v}
+            
+            if {_v} is online:
+                if {_v} is alive:
+                    set {_dx_p} to difference between x-coordinate of {_v} and x-coordinate of {-sandstorm::sky_center::%{_v_uuid}%}
+                    set {_dz_p} to difference between z-coordinate of {_v} and z-coordinate of {-sandstorm::sky_center::%{_v_uuid}%}
+                    set {_teleported} to false
+
+                    if y-coordinate of {_v} < ({@altura_cielo} - 24.5):
+                        set fall distance of {_v} to 0
+                        teleport {_v} to {_tp_loc}
+                        send "{@prefix} &c&l¡CAES ETERNAMENTE INERTE!" to {_v}
+                        play sound "entity.phantom.swoop" with volume 1.5 and pitch 0.5 at {_v}
+                        set {_teleported} to true
+
+                    else if {_dx_p} > 17.5:
+                        set fall distance of {_v} to 0
+                        teleport {_v} to {_tp_loc}
+                        send "{@prefix} &c&l¡LOS MUROS QUEMAN!" to {_v}
+                        set {_teleported} to true
+                        
+                    else if {_dz_p} > 17.5:
+                        set fall distance of {_v} to 0
+                        teleport {_v} to {_tp_loc}
+                        send "{@prefix} &c&l¡LOS MUROS QUEMAN!" to {_v}
+                        set {_teleported} to true
+                        
+                    if {_teleported} is true:
+                        ignite {_v} for 3 seconds
+
+                    set {_part_loops} to 3
+                    if {-sandstorm::time_left::%{_host_uuid}%} <= 40:
+                        set {_part_loops} to 6
+                        
+                    loop {_part_loops} times:
+                        set {_rx} to a random number between -16 and 16
+                        set {_ry} to a random number between -2 and 15
+                        set {_rz} to a random number between -16 and 16
+                        set {_p_loc_mod} to location of {_v}
+                        add {_rx} to x-coordinate of {_p_loc_mod}
+                        add {_ry} to y-coordinate of {_p_loc_mod}
+                        add {_rz} to z-coordinate of {_p_loc_mod}
+                        draw 3 of campfire cosy smoke at {_p_loc_mod}
+                        draw 8 of falling dust using red sand at {_p_loc_mod}
+                        draw 2 of flame at {_p_loc_mod}
+                        
+                    set {_time} to {-sandstorm::time_left::%{_host_uuid}%}
+                    
+                    if {_time} > 80:
+                        send action bar "&6&l🔥 FASE 1: CALENTAMIENTO &7|&fTiempo: &e%{_time}%s" to {_v}
+                    else if {_time} is between 41 and 80:
+                        send action bar "&e&l⚡ FASE 2: TORMENTA ELÉCTRICA &7|&fTiempo: &e%{_time}%s" to {_v}
+                        if {_time} is 80:
+                            send title "&e&l⚡ FASE II ⚡" with subtitle "&6Tormenta eléctrica en curso..." to {_v} for 3 seconds
+                            play sound "entity.lightning_bolt.thunder" with volume 1.5 and pitch 0.5 at {_v}
+                    else:
+                        send action bar "&c&l💀 FASE 3: APOCALIPSIS &7|&fTiempo: &c%{_time}%s" to {_v}
+                        if {_time} is 40:
+                            send title "&c&l💀 FASE III 💀" with subtitle "&4¡EL SUELO SE DESINTEGRA RÁPIDAMENTE!" to {_v} for 4 seconds
+                            play sound "entity.wither.spawn" with volume 1.5 and pitch 0.5 at {_v}
+                            
+                    if {_time} <= 40:
+                        if mod(loop-number-1, 20) is 0: 
+                            ignite {_v} for 5 seconds
+                            if health of {_v} > 1.5:
+                                set health of {_v} to (health of {_v} - 1)
+                                play sound "entity.player.hurt_on_fire" with volume 1.0 and pitch 1.2 at {_v}
+                            else:
+                                set health of {_v} to 1.5
+                                play sound "entity.warden.heartbeat" with volume 1.5 and pitch 1.0 at {_v}
+
+        if mod(loop-number, 50) is 0:
+            if {-sandstorm::time_left::%{_host_uuid}%} < 100:
+                set {_mob_loc} to {_sky_loc}
+                add (a random integer between -6 and 6) to x-coordinate of {_mob_loc}
+                add (a random integer between -6 and 6) to z-coordinate of {_mob_loc}
+                spawn 1 husk at {_mob_loc}
+                set {_target_player} to random element out of {-sandstorm::arena_players::%{_host_uuid}%::*}
+                if {_target_player} is online:
+                    set target of last spawned entity to {_target_player}
+                add last spawned entity to {-sandstorm::mobs::%{_host_uuid}%::*}
+
+        set {_time2} to {-sandstorm::time_left::%{_host_uuid}%}
+        if {_time2} > 80:
+            set {_fase} to 1
+            set {_loop_blocks} to 25
+            set {_lightning_chance} to 120
+        else if {_time2} is between 41 and 80:
+            set {_fase} to 2
+            set {_loop_blocks} to 60
+            set {_lightning_chance} to 25 
+        else:
+            set {_fase} to 3
+            set {_loop_blocks} to 150
+            set {_lightning_chance} to 50
+
+        loop {_loop_blocks} times: 
+            set {_rx_b} to (x-coordinate of {_sky_loc}) + (a random integer between -15 and 15)
+            set {_ry_b} to ({@altura_cielo}) + (a random integer between -19 and 10) 
+            set {_rz_b} to (z-coordinate of {_sky_loc}) + (a random integer between -15 and 15)
+            
+            set {_b_loc} to location of {_p}
+            set x-coordinate of {_b_loc} to {_rx_b}
+            set y-coordinate of {_b_loc} to {_ry_b}
+            set z-coordinate of {_b_loc} to {_rz_b}
+            
+            if a random integer between 1 and {_lightning_chance} is 1:
+                strike lightning effect at {_b_loc}
+                play sound "entity.lightning_bolt.impact" with volume 0.7 and pitch 0.5 at {_b_loc}
+            
+            if block at {_b_loc} is not air: 
+                if {_fase} is 1:
+                    if chance of 30%:
+                        set block at {_b_loc} to orange wool
+                    else:
+                        set {_above} to location of {_b_loc}
+                        add 1 to y-coordinate of {_above}
+                        if block at {_above} is air:
+                            set block at {_above} to fire
+                            
+                else if {_fase} is 2:
+                    set {_rand} to a random integer between 1 and 10
+                    if {_rand} <= 3:
+                        set block at {_b_loc} to air
+                        play sound "block.deepslate.break" with volume 0.3 and pitch 0.5 at {_b_loc}
+                    else if {_rand} is 4 or 5:
+                        set block at {_b_loc} to orange wool
+                    else if {_rand} is 6 or 7:
+                        set block at {_b_loc} to sandstone
+                    else:
+                        set block at {_b_loc} to red sandstone
+                        
+                else if {_fase} is 3:
+                    set {_rand} to a random integer between 1 and 10
+                    if {_rand} <= 8:
+                        set block at {_b_loc} to air
+                        play sound "block.deepslate.break" with volume 0.35 and pitch 0.5 at {_b_loc}
+                        if chance of 7%:
+                            play sound "entity.ghast.warn" with volume 0.3 and pitch 0.5 at {_b_loc}
+                    else if {_rand} is 9:
+                        set block at {_b_loc} to orange wool
+                    else:
+                        set block at {_b_loc} to red sandstone
+                        
+                play sound "block.fire.ambient" with volume 0.2 and pitch 0.8 at {_b_loc}
+
+        wait 5 ticks
+        
+        if mod(loop-number-1, 4) is 0:
+            remove 1 from {-sandstorm::time_left::%{_host_uuid}%}
+            if {-sandstorm::time_left::%{_host_uuid}%} <= 0:
+                if {-sandstorm::arena_players::%{_host_uuid}%::*} is set:
+                    broadcast "{@prefix} &6&l¡LA ILUSIÓN HA TERMINADO!&fEl grupo de &e%{_p}% &fha regresado..."
+                    detenerArenaCielo({_p})
+                stop loop
+                
+
+# ==========================================
+# 5. LIMPIEZA MULTIJUGADOR Y DESMANTELAMIENTO (FIX DE MEMORIA)
+# ==========================================
+function detenerArenaCielo(p: player):
+    set {_uuid} to uuid of {_p}
+    
+    if {-sandstorm::host::%{_uuid}%} is set:
+        set {_host_uuid} to {-sandstorm::host::%{_uuid}%}
+    else:
+        set {_host_uuid} to {_uuid}
+        
+    if {-sandstorm::arena_players::%{_host_uuid}%::*} is not set:
+        stop
+        
+    set {_center_cage} to {-sandstorm::sky_center::%{_host_uuid}%}
+    set {_pet_return_loc} to {-sandstorm::real_loc::%{_host_uuid}%}
+        
+    loop {-sandstorm::arena_players::%{_host_uuid}%::*}:
+        set {_v} to loop-value 
+        set {_v_uuid} to uuid of {_v}
+        set {_return_loc} to {-sandstorm::real_loc::%{_v_uuid}%}
+        
+        # Guardamos la ubicación de retorno pase lo que pase
+        set {-sandstorm::pending_return::%{_v_uuid}%} to {_return_loc}
+        
+        # Si el jugador está conectado, lo devolvemos en caliente
+        if {_v} is online:
+            delete {-sandstorm::pending_return::%{_v_uuid}%} # Ya no está pendiente si lo procesamos aquí
+            
+            if {_v} is alive:
+                if name of helmet of {_v} is "&6&lGAFAS DE ARENA" or "&c&lCABEZA ARDIENTE":
+                    set helmet of {_v} to air
+                    
+                if {-sandstorm::oldhelmet::%{_v_uuid}%} is set:
+                    if {-sandstorm::oldhelmet::%{_v_uuid}%} is not air:
+                        if gamemode of {_v} is not creative:
+                            if helmet of {_v} is air:
+                                set helmet of {_v} to {-sandstorm::oldhelmet::%{_v_uuid}%}
+                            else:
+                                give {-sandstorm::oldhelmet::%{_v_uuid}%} to {_v}
+                    delete {-sandstorm::oldhelmet::%{_v_uuid}%}
+
+                set fall distance of {_v} to 0
+                teleport {_v} to {_return_loc}
+                
+                extinguish {_v}
+                remove regeneration from {_v}
+                remove absorption from {_v}
+                apply resistance 5 to {_v} for 5 seconds
+                
+                send title "<##32CD32>&l🌿 DESPERTAR 🌿" with subtitle "&7Todo fue una pesadilla..." to {_v} for 3 seconds
+                play sound "entity.player.splash" with volume 1.5 and pitch 1.2 at {_v}
+                
+        # Limpieza obligatoria de metadatos locales del evento
+        delete {-sandstorm::active::%{_v_uuid}%} 
+        delete {-sandstorm::host::%{_v_uuid}%}
+        delete {-sandstorm::sky_center::%{_v_uuid}%}
+        delete {-sandstorm::real_loc::%{_v_uuid}%}
+        delete {-sandstorm::died::%{_v_uuid}%}
+
+    loop {-sandstorm::saved_pets::%{_host_uuid}%::*}:
+        if loop-value is alive:
+            teleport loop-value to {_pet_return_loc}
+            extinguish loop-value
+            heal loop-value
+    delete {-sandstorm::saved_pets::%{_host_uuid}%::*}
+    
+    loop {-sandstorm::mobs::%{_host_uuid}%::*}:
+        kill loop-value
+    delete {-sandstorm::mobs::%{_host_uuid}%::*}
+
+    wait 15 ticks
+
+    if {_center_cage} is set:
+        set {_del1} to location of {_center_cage}
+        add -23 to x-coordinate of {_del1}
+        add -23 to z-coordinate of {_del1}
+        set y-coordinate of {_del1} to ({@altura_cielo} - 32)
+        
+        set {_del2} to location of {_center_cage}
+        add 23 to x-coordinate of {_del2}
+        add 23 to z-coordinate of {_del2}
+        set y-coordinate of {_del2} to ({@altura_cielo} + 32)
+        
+        set {_blocks_deleted} to 0
+        loop blocks within {_del1} and {_del2}:
+            if loop-block is not air:
+                set loop-block to air
+            add 1 to {_blocks_deleted}
+            if {_blocks_deleted} >= 1000:
+                set {_blocks_deleted} to 0
+                wait 1 tick
+
+    delete {-sandstorm::time_left::%{_host_uuid}%}
+    delete {-sandstorm::arena_players::%{_host_uuid}%::*}
+    delete {-sandstorm::lock::%{_host_uuid}%}
+
+# ==========================================
+# 6. CANCELAR DAÑO NATURAL 
+# ==========================================
+on damage of player:
+    {-sandstorm::active::%uuid of victim%} is set
+    cancel event
+    
+# ==========================================
+# 💥 PALO DESTRUCTOR DE BLOQUES (V250)
+# ==========================================
+command /palodestructor:
+    permission: op
+    trigger:
+        give player stick named "&4&l💥 PALO DESTRUCTOR DE MUNDOS xd" with lore "&7Destruye 250 bloques a los que mires."
+        send "&c&l[!] &fHas recibido el Destructor (Versión 250 bloques). ¡Con gran poder conlleva una gran responsabilidad!" to player
+
+on left click:
+    player's tool is set
+    name of player's tool contains "PALO DESTRUCTOR"
+    cancel event
+    
+    set {_tb} to target block
+    if {_tb} is set:
+        if {_tb} is not air:
+            set {_count} to 0
+            loop blocks in radius 5 around {_tb}:
+                if loop-block is not air:
+                    if loop-block is not bedrock: 
+                        set loop-block to air
+                        add 1 to {_count}
+                        if {_count} >= 250:
+                            stop loop
+                            
+            create a fake explosion at {_tb}
+            play sound "entity.wither.break_block" with volume 0.8 and pitch 1.0 at {_tb}

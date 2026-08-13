@@ -1,0 +1,55 @@
+# =====================================================================
+#   SISTEMA DE ADVERTENCIA: CHUNKY (PRE-GENERACIÓN DE MUNDO)
+# =====================================================================
+
+options:
+    prefix: &8[&d&lChunky&8] &7»
+    perm_admin: natureland.chunky.admin
+    msg_no_perm: &cNo tienes permisos para gestionar las alertas de Chunky.
+
+# ---------------------------------------------------------------------
+# COMANDO PARA ALTERNAR LA ALERTA (ON/OFF)
+# ---------------------------------------------------------------------
+command /chunkyaviso:
+    permission: {@perm_admin}
+    permission message: {@msg_no_perm}
+    trigger:
+        if {chunky::alerta_activa} is not true:
+            set {chunky::alerta_activa} to true
+            
+            # Anuncio Global de Inicio
+            broadcast ""
+            broadcast "{@prefix} &c&l⚠ ADVERTENCIA DE RENDIMIENTO ⚠"
+            broadcast "{@prefix} &fEl Staff ha iniciado la &epre-generación de terreno&f."
+            broadcast "{@prefix} &fEs muy probable que experimentes &clag severo o tirones&f."
+            broadcast "{@prefix} &fPor favor, ten paciencia. ¡Es para mejorar el servidor!"
+            broadcast ""
+            send "{@prefix} &aHas ACTIVADO las alertas automáticas de Chunky." to sender
+        else:
+            set {chunky::alerta_activa} to false
+            
+            # Anuncio Global de Finalización
+            broadcast ""
+            broadcast "{@prefix} &a&l✔ PRE-GENERACIÓN PAUSADA/FINALIZADA ✔"
+            broadcast "{@prefix} &fEl proceso de Chunky ha terminado."
+            broadcast "{@prefix} &fEl rendimiento y el lag deberían volver a la normalidad."
+            broadcast ""
+            send "{@prefix} &cHas DESACTIVADO las alertas automáticas de Chunky." to sender
+
+# ---------------------------------------------------------------------
+# RECORDATORIO AUTOMÁTICO CADA 10 MINUTOS
+# ---------------------------------------------------------------------
+every 10 minutes:
+    if {chunky::alerta_activa} is true:
+        broadcast "{@prefix} &c⚠ &lRECORDATORIO: &fSe está generando terreno en segundo plano (Chunky activo). Disculpa el lag temporal."
+
+# ---------------------------------------------------------------------
+# AVISO PARA LOS JUGADORES QUE RECIÉN ENTRAN
+# ---------------------------------------------------------------------
+on join:
+    if {chunky::alerta_activa} is true:
+        wait 5 seconds
+        if player is online:
+            send "{@prefix} &c⚠ &lATENCIÓN: &fActualmente estamos pre-generando el mundo." to player
+            send "{@prefix} &fSi notas lag al entrar, se debe a este proceso temporal." to player
+            send action bar "&c⚠ Pre-generación de terreno activa (Posible lag)" to player

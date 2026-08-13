@@ -1,0 +1,534 @@
+# =====================================================================
+#
+#   ❄🔥 DESASTRE TÉRMICO: SIMULADOR DE CLIMA EXTREMO 🔥❄
+#   (VERSIÓN V6 - VIENTOS, MULTIPLICADORES Y ESCALADO MASIVO)
+#
+# =====================================================================
+
+function pfx() :: string:
+    return "<gradient:#FF4500:#00FFFF>&l[Desastre]&r"
+
+options:
+    duracion_segundos: 600
+    altura_cielo: 220
+    recompensa_premio: nether star named "<gradient:#FF4500:#00FFFF>&lNúcleo de Tormenta Perfecta"
+
+# ==========================================
+# ⚡ CORE: CONTROL DE RETORNO Y SEGURIDAD
+# ==========================================
+on join:
+    set {_uuid} to uuid of player
+    if {-blizzard::active::%{_uuid}%} is set:
+        set fall distance of player to 0
+        set {_host} to {-blizzard::host::%{_uuid}%}
+        set {_tp_loc} to {-blizzard::safe_tp::%{_host}%}
+        if {_tp_loc} is not set:
+            set {_tp_loc} to {-blizzard::sky_center::%{_host}%}
+        teleport player to {_tp_loc}
+        send "%pfx()% &cNo puedes escapar del desastre natural." to player
+        stop
+
+    if {-blizzard::pending_return::%{_uuid}%} is set:
+        restaurarJugadorPremium(player)
+        teleport player to {-blizzard::pending_return::%{_uuid}%}
+        apply resistance 5 to player for 5 seconds
+        delete {-blizzard::pending_return::%{_uuid}%}
+        send title "<##32CD32>&l🌿 ESTABILIZACIÓN" with subtitle "&7El clima vuelve a la normalidad..." to player for 4 seconds
+
+on player move:
+    {-blizzard::frozen_statue::%uuid of player%} is set
+    cancel event
+
+on break:
+    {-blizzard::active::%uuid of player%} is set
+    cancel event
+    send action bar "&cLa tormenta te impide concentrarte." to player
+
+on place:
+    {-blizzard::active::%uuid of player%} is set
+    cancel event
+
+on drop:
+    {-blizzard::active::%uuid of player%} is set
+    cancel event
+
+on inventory click:
+    {-blizzard::active::%uuid of player%} is set
+    cancel event
+
+on command:
+    {-blizzard::active::%uuid of player%} is set
+    if command is not "palores" or "paloapagarice" or "limpiarhielo":
+        cancel event
+        send "%pfx()% &cEl viento ensordece tus palabras." to player
+
+# ==========================================
+# 🛠️ COMANDOS DE ADMINISTRACIÓN
+# ==========================================
+command /palores:
+    permission: op
+    trigger:
+        give player blaze rod named "<gradient:#FF4500:#00FFFF>&l🌪️ CETRO DEL DESASTRE 🌪️" with lore "&7Clic derecho para desatar el apocalipsis."
+        send "%pfx()% &fCetro obtenido." to player
+
+command /paloapagarice:
+    permission: op
+    trigger:
+        give player magma cream named "<##32CD32>&l🌿 CALMAR CLIMA 🌿"
+        send "%pfx()% &fApagador obtenido." to player
+
+command /limpiarhielo:
+    permission: op
+    trigger:
+        delete {-blizzard::*}
+        send "%pfx()% &aVariables purgadas." to player
+
+on right click:
+    player's tool is set
+    set {_name} to name of player's tool
+    {_name} is set
+    if {_name} contains "CETRO DEL DESASTRE":
+        cancel event
+        if difference between {-blizzard::cd::%uuid of player%} and now is less than 2 seconds:
+            stop
+        set {-blizzard::cd::%uuid of player%} to now
+        
+        set {_target} to targeted player
+        if {_target} is set:
+            iniciarVentiscaPremium({_target})
+        else:
+            iniciarVentiscaPremium(player)
+            
+    else if {_name} contains "CALMAR CLIMA":
+        cancel event
+        if difference between {-blizzard::cd::%uuid of player%} and now is less than 2 seconds:
+            stop
+        set {-blizzard::cd::%uuid of player%} to now
+        apagarTodasLasVentiscas(player)
+
+function apagarTodasLasVentiscas(admin: player):
+    set {_stopped} to 0
+    loop all players:
+        set {_uuid} to uuid of loop-player
+        if {-blizzard::active::%{_uuid}%} is set:
+            detenerVentiscaPremium(loop-player)
+            add 1 to {_stopped}
+    if {_stopped} > 0:
+        send "%pfx()% &aSe detuvieron &b%{_stopped}% &ftormentas." to {_admin}
+    else:
+        send "%pfx()% &cNo hay tormentas activas." to {_admin}
+
+# ==========================================
+# 🔥 CONSTRUCTOR: GENERACIÓN PROCEDURAL
+# ==========================================
+function iniciarVentiscaPremium(p: player):
+    set {_host_uuid} to uuid of {_p}
+    if {-blizzard::lock::%{_host_uuid}%} is set:
+        stop
+    set {-blizzard::lock::%{_host_uuid}%} to true
+    if {-blizzard::active::%{_host_uuid}%} is set:
+        delete {-blizzard::lock::%{_host_uuid}%}
+        stop
+        
+    set {_real_loc} to location of {_p}
+    set {_sky_loc} to location of {_real_loc}
+    set y-coordinate of {_sky_loc} to {@altura_cielo}
+    
+    if x-coordinate of {_real_loc} > 0:
+        add 1500 to x-coordinate of {_sky_loc}
+    else:
+        remove 1500 from x-coordinate of {_sky_loc}
+    if z-coordinate of {_real_loc} > 0:
+        add 1500 to z-coordinate of {_sky_loc}
+    else:
+        remove 1500 from z-coordinate of {_sky_loc}
+            
+    # Paredes
+    set {_w1} to location of {_sky_loc}
+    add -18 to x-coordinate of {_w1}
+    add -18 to z-coordinate of {_w1}
+    set y-coordinate of {_w1} to ({@altura_cielo} - 25)
+    
+    set {_w2} to location of {_sky_loc}
+    add 18 to x-coordinate of {_w2}
+    add 18 to z-coordinate of {_w2}
+    set y-coordinate of {_w2} to ({@altura_cielo} + 26)
+    
+    set {_blocks_built} to 0
+    set {_top_y} to round({@altura_cielo} + 26)
+    
+    loop blocks within {_w1} and {_w2}:
+        set {_x_dist} to abs(x-coordinate of loop-block - x-coordinate of {_sky_loc})
+        set {_z_dist} to abs(z-coordinate of loop-block - z-coordinate of {_sky_loc})
+        set {_y_coord} to y-coordinate of loop-block
+        
+        set {_build} to false
+        if {_x_dist} is 18:
+            set {_build} to true
+        else if {_z_dist} is 18:
+            set {_build} to true
+        else if {_y_coord} >= {_top_y}:
+            set {_build} to true
+            
+        if {_build} is true:
+            set loop-block to barrier
+            add 1 to {_blocks_built}
+            if {_blocks_built} >= 800:
+                set {_blocks_built} to 0
+                wait 1 tick
+
+    # Clonación y Evaporación
+    set {_c1} to location of {_real_loc}
+    add -17 to x-coordinate of {_c1}
+    add -17 to z-coordinate of {_c1}
+    set y-coordinate of {_c1} to (y-coordinate of {_real_loc} - 24)
+    set {_c2} to location of {_real_loc}
+    add 17 to x-coordinate of {_c2}
+    add 17 to z-coordinate of {_c2}
+    set y-coordinate of {_c2} to (y-coordinate of {_real_loc} + 25)
+    
+    set {_all_blocks::*} to blocks within {_c1} and {_c2}
+    wait 1 tick
+
+    set {_blocks_copied} to 0
+    loop {_all_blocks::*}:
+        set {_target_block} to loop-value
+        if {_target_block} is not air:
+            set {_dx} to x-coordinate of {_target_block} - x-coordinate of {_real_loc}
+            set {_dy} to y-coordinate of {_target_block} - y-coordinate of {_real_loc}
+            set {_dz} to z-coordinate of {_target_block} - z-coordinate of {_real_loc}
+            
+            set {_sky_target} to location of {_sky_loc}
+            add {_dx} to x-coordinate of {_sky_target}
+            add {_dy} to y-coordinate of {_sky_target}
+            add {_dz} to z-coordinate of {_sky_target}
+            
+            set {_mat_str} to "%type of {_target_block}%"
+            set {_data_str} to "%block data of {_target_block}%"
+            
+            if {_data_str} contains "waterlogged=true":
+                set block at {_sky_target} to air
+            else if {_mat_str} contains "water" or "kelp" or "seagrass" or "coral" or "sponge":
+                set block at {_sky_target} to air
+            else if {_mat_str} contains "flower" or "fern" or "bush" or "dandelion" or "poppy" or "orchid" or "tulip" or "allium" or "bluet" or "oxeye" or "daisy" or "cornflower" or "lily" or "sugar cane":
+                set block at {_sky_target} to air
+            else:
+                set block at {_sky_target} to type of {_target_block}
+                set block data of block at {_sky_target} to block data of {_target_block}
+                
+            add 1 to {_blocks_copied}
+            if {_blocks_copied} >= 1200: 
+                set {_blocks_copied} to 0
+                wait 1 tick
+
+    wait 2 seconds
+
+    # Escáner
+    set {_safe_tp} to location of {_sky_loc}
+    while block at {_safe_tp} is not air:
+        add 1 to y-coordinate of {_safe_tp}
+        if y-coordinate of {_safe_tp} >= ({@altura_cielo} + 24):
+            stop loop
+    while block above {_safe_tp} is not air:
+        add 1 to y-coordinate of {_safe_tp}
+        if y-coordinate of {_safe_tp} >= ({@altura_cielo} + 24):
+            stop loop
+            
+    set {-blizzard::safe_tp::%{_host_uuid}%} to {_safe_tp}
+
+    loop all players in radius 32 around {_p}:
+        set {_v} to loop-player
+        set {_v_uuid} to uuid of {_v}
+        
+        set {-blizzard::active::%{_v_uuid}%} to true
+        set {-blizzard::host::%{_v_uuid}%} to {_host_uuid} 
+        set {-blizzard::real_loc::%{_v_uuid}%} to location of {_v}
+        set {-blizzard::sky_center::%{_v_uuid}%} to {_sky_loc}
+        add {_v} to {-blizzard::arena_players::%{_host_uuid}%::*}
+        
+        set {-blizzard::old_level::%{_v_uuid}%} to level of {_v}
+        set {-blizzard::old_xp::%{_v_uuid}%} to level progress of {_v}
+        
+        send title "<##FF4500>&l🔥 OLA DE CALOR 🔥" with subtitle "&7Niveles letales de radiación solar..." to {_v} for 5 seconds
+        play sound "entity.wither.spawn" with volume 0.8 and pitch 0.5 at {_v}
+        play sound "item.firecharge.use" with volume 1.5 at {_v}
+        
+        set helmet of {_v} to orange stained glass named "&6&lGAFAS TÉRMICAS"
+        apply fire resistance 10 to {_v} for 600 seconds
+        teleport {_v} to {_safe_tp}
+
+    # ==========================================
+    # 🌀 BUCLE DE TORMENTA ESCALABLE (2400 TICKS)
+    # ==========================================
+    set {-blizzard::time_left::%{_host_uuid}%} to {@duracion_segundos}
+    
+    loop 2400 times: 
+        if {-blizzard::arena_players::%{_host_uuid}%::*} is not set:
+            stop loop
+            
+        set {_time} to {-blizzard::time_left::%{_host_uuid}%}
+        set {_fase} to floor((({@duracion_segundos} - {_time}) / 30) + 1)
+        if {_fase} > 20:
+            set {_fase} to 20
+
+        # --- SISTEMA DE VIENTOS Y MULTIPLICADOR DE PARTÍCULAS ---
+        if mod(loop-number-1, 2) is 0:
+            set {_anchor} to first element out of {-blizzard::arena_players::%{_host_uuid}%::*}
+            # Multiplicamos la cantidad de loops de partículas según la fase para más caos
+            set {_particle_loops} to floor({_fase} / 2) + 2 
+            
+            loop {_particle_loops} times:
+                set {_r_x} to x-coordinate of {_sky_loc} + a random integer between -15 and 15
+                set {_r_y} to y-coordinate of {_sky_loc} + a random integer between -5 and 15
+                set {_r_z} to z-coordinate of {_sky_loc} + a random integer between -15 and 15
+                
+                set {_px} to "%{_r_x}%"
+                replace all "," with "" in {_px}
+                set {_py} to "%{_r_y}%"
+                replace all "," with "" in {_py}
+                set {_pz} to "%{_r_z}%"
+                replace all "," with "" in {_pz}
+                
+                if {_fase} <= 10:
+                    # VIENTO DE CALOR: Humo de fogata moviéndose lateralmente (velocidad 0.1)
+                    execute console command "execute at %{_anchor}% positioned %{_px}% %{_py}% %{_pz}% run particle campfire_signal_smoke ~ ~ ~ 0.5 0.1 0.5 0.1 8 force"
+                    execute console command "execute at %{_anchor}% positioned %{_px}% %{_py}% %{_pz}% run particle flame ~ ~ ~ 2 2 2 0.05 10 force"
+                    execute console command "execute at %{_anchor}% positioned %{_px}% %{_py}% %{_pz}% run particle ash ~ ~ ~ 3 3 3 0.1 15 force"
+                else:
+                    # VIENTO HELADO: Nubes y nieve moviéndose fuerte (velocidad 0.3) simulando ventisca
+                    execute console command "execute at %{_anchor}% positioned %{_px}% %{_py}% %{_pz}% run particle cloud ~ ~ ~ 1 0.1 1 0.3 5 force"
+                    execute console command "execute at %{_anchor}% positioned %{_px}% %{_py}% %{_pz}% run particle snowflake ~ ~ ~ 3 3 3 0.1 30 force"
+                    execute console command "execute at %{_anchor}% positioned %{_px}% %{_py}% %{_pz}% run particle soul_fire_flame ~ ~ ~ 2 2 2 0.05 5 force"
+
+        # --- CHOQUE TÉRMICO (DESASTRE FASE 11) ---
+        if {_fase} is 11:
+            if {-blizzard::thermal_shock::%{_host_uuid}%} is not set:
+                set {-blizzard::thermal_shock::%{_host_uuid}%} to true
+                choqueTermicoAsincrono({_host_uuid}, {_sky_loc}, {@altura_cielo})
+                
+                loop {-blizzard::arena_players::%{_host_uuid}%::*}:
+                    set {_v} to loop-value-2
+                    send title "<##00FFFF>&l¡VENTISCA ÁRTICA!" with subtitle "&7La tormenta muta salvajemente..." to {_v} for 4 seconds
+                    play sound "entity.wither.death" with volume 1.5 at {_v}
+                    play sound "weather.rain" with volume 2.0 at {_v}
+                    set helmet of {_v} to light blue stained glass named "&b&lGAFAS CRIO-SENSORES"
+
+        loop {-blizzard::arena_players::%{_host_uuid}%::*}:
+            set {_v} to loop-value-2
+            set {_v_uuid} to uuid of {_v}
+            
+            if {_v} is online:
+                set {_dx} to abs(x-coordinate of {_v} - x-coordinate of {_sky_loc})
+                set {_dz} to abs(z-coordinate of {_v} - z-coordinate of {_sky_loc})
+                
+                if {_dx} > 17.5:
+                    teleport {_v} to {-blizzard::safe_tp::%{_host_uuid}%}
+                else if {_dz} > 17.5:
+                    teleport {_v} to {-blizzard::safe_tp::%{_host_uuid}%}
+                else if y-coordinate of {_v} < ({@altura_cielo} - 24):
+                    teleport {_v} to {-blizzard::safe_tp::%{_host_uuid}%}
+
+                set level progress of {_v} to ({_time} / {@duracion_segundos})
+                set level of {_v} to {_time}
+
+                if {-blizzard::frozen_statue::%{_v_uuid}%} is not set:
+                    if {_fase} <= 10:
+                        if {_fase} <= 3:
+                            send action bar "<##FF8C00>&lFASE %{_fase}%/20: &eCalentamiento global acelerado." to {_v}
+                        else if {_fase} is between 4 and 7:
+                            send action bar "<##FF4500>&lFASE %{_fase}%/20: &cVientos ígneos detectados." to {_v}
+                        else if {_fase} is between 8 and 10:
+                            send action bar "<##8B0000>&lFASE %{_fase}%/20: &4El ecosistema colapsa..." to {_v}
+                    else:
+                        if {_fase} is between 11 and 14:
+                            send action bar "<##00E5FF>&lFASE %{_fase}%/20: &bCorrientes de viento polar." to {_v}
+                            if chance of 5%:
+                                apply slowness 2 to {_v} for 2 seconds
+                        else if {_fase} is between 15 and 18:
+                            send action bar "<##1A237E>&lFASE %{_fase}%/20: &9Nevada catastrófica nivel 5." to {_v}
+                            apply slowness 4 to {_v} for 2 seconds
+                        else if {_fase} is 19:
+                            send action bar "<##000000>&lFASE 19/20: &c&k|||&0 CEGUERA POR TORMENTA &c&k|||" to {_v}
+                            apply slowness 6 to {_v} for 2 seconds
+                            apply darkness 1 to {_v} for 3 seconds
+                        else if {_fase} is 20:
+                            send action bar "<gradient:#FFFFFF:#00FFFF>&l❄ TORMENTA PERFECTA ❄" to {_v}
+                            if health of {_v} > 2:
+                                damage {_v} by 2
+                            else:
+                                set {-blizzard::frozen_statue::%{_v_uuid}%} to true
+                                set helmet of {_v} to blue ice block named "&9&lESTASIS"
+                                apply blindness 999 to {_v} for 120 seconds
+                                send title "<##00FFFF>&l❄ CONGELADO ❄" with subtitle "&7Sucumbiste ante el desastre..." to {_v}
+                                play sound "block.glass.break" at {_v}
+                else:
+                    send action bar "<gradient:#00FFFF:#FFFFFF>&lCONGELADO | &bEsperando rescate" to {_v}
+
+        # --- MULTIPLICADOR MASIVO DE REEMPLAZO DE BLOQUES ---
+        # Calor: Escala suavemente (30 a 300 bloques por tick)
+        if {_fase} <= 10:
+            set {_loop_blocks} to {_fase} * 30
+        # Frío: Multiplicador masivo de tormenta (de 100 hasta 900 bloques por tick)
+        else:
+            set {_base_fria} to {_fase} - 10
+            set {_loop_blocks} to ({_base_fria} * 80) + 100
+
+        loop {_loop_blocks} times: 
+            set {_rx_b} to x-coordinate of {_sky_loc} + a random integer between -16 and 16
+            set {_ry_b} to {@altura_cielo} + a random integer between -24 and 24
+            set {_rz_b} to z-coordinate of {_sky_loc} + a random integer between -16 and 16
+            
+            set {_b_loc} to location({_rx_b}, {_ry_b}, {_rz_b}, world of {_sky_loc})
+            set {_target_b} to block at {_b_loc}
+            
+            if {_target_b} is not air or barrier: 
+                if {_fase} <= 10:
+                    if {_target_b} is not magma block or netherrack or lava or soul sand or basalt or fire:
+                        set {_rand} to a random integer between 1 and 100
+                        if {_rand} <= 10:
+                            set block at {_b_loc} to magma block
+                        else if {_rand} <= 40:
+                            set block at {_b_loc} to netherrack
+                        else if {_rand} <= 60:
+                            set block at {_b_loc} to soul sand
+                        else if {_rand} <= 80:
+                            set block at {_b_loc} to basalt
+                        else if {_rand} <= 85: 
+                            set block at {_b_loc} to lava
+                        else if {_rand} <= 90:
+                            if block above {_b_loc} is air:
+                                set block above {_b_loc} to fire
+                else:
+                    if chance of 15%:
+                        if {_target_b} is not snow block:
+                            set block at {_b_loc} to snow block
+                    else:
+                        if {_target_b} is not ice or packed ice or blue ice or snow block:
+                            # AQUI ESTA LA CORRECCIÓN DEL "OR" PARA EVITAR EL ERROR DE SKRIPT
+                            set {_random_ice} to random element out of ice, packed ice, blue ice or snow block
+                            set block at {_b_loc} to {_random_ice}
+                        
+        wait 5 ticks 
+        
+        if mod(loop-number-1, 4) is 0:
+            remove 1 from {-blizzard::time_left::%{_host_uuid}%}
+            if {-blizzard::time_left::%{_host_uuid}%} <= 0:
+                broadcast "%pfx()% &aEl clima se ha estabilizado. Tormenta disipada."
+                detenerVentiscaPremium({_p}, true)
+                stop loop
+
+# ==========================================
+# ⬛ FUNCIÓN ASÍNCRONA: CHOQUE TÉRMICO (OBSIDIANA REAL)
+# ==========================================
+function choqueTermicoAsincrono(host: string, sky_loc: location, alt: number):
+    set {_c1} to location of {_sky_loc}
+    add -17 to x-coordinate of {_c1}
+    add -17 to z-coordinate of {_c1}
+    set y-coordinate of {_c1} to ({_alt} - 24)
+    
+    set {_c2} to location of {_sky_loc}
+    add 17 to x-coordinate of {_c2}
+    add 17 to z-coordinate of {_c2}
+    set y-coordinate of {_c2} to ({_alt} + 25)
+    
+    set {_blocks_checked} to 0
+    loop blocks within {_c1} and {_c2}:
+        if loop-block is magma block:
+            set loop-block to cobblestone
+        else if loop-block is lava:
+            set loop-block to obsidian
+        else if loop-block is netherrack or soul sand or basalt:
+            set {_rng} to a random integer between 1 and 3
+            if {_rng} is 1:
+                set loop-block to stone
+            else if {_rng} is 2:
+                set loop-block to cobblestone
+            else:
+                set loop-block to gravel
+                
+        add 1 to {_blocks_checked}
+        if {_blocks_checked} >= 1500:
+            set {_blocks_checked} to 0
+            wait 1 tick
+
+# ==========================================
+# ☀️ RETORNO Y LIMPIEZA
+# ==========================================
+function detenerVentiscaPremium(p: player, success: boolean = false):
+    set {_uuid} to uuid of {_p}
+    if {-blizzard::host::%{_uuid}%} is set:
+        set {_host_uuid} to {-blizzard::host::%{_uuid}%}
+    else:
+        set {_host_uuid} to {_uuid}
+        
+    set {_center_cage} to {-blizzard::sky_center::%{_host_uuid}%}
+        
+    loop {-blizzard::arena_players::%{_host_uuid}%::*}:
+        set {_v} to loop-value 
+        set {_v_uuid} to uuid of {_v}
+        set {_return_loc} to {-blizzard::real_loc::%{_v_uuid}%}
+        
+        if {_v} is online:
+            restaurarJugadorPremium({_v})
+            teleport {_v} to {_return_loc}
+            
+            if {_success} is true:
+                send title "<gradient:#FFD700:#FFFFFF>&l¡SOBREVIVISTE!" with subtitle "&7Escapaste de la ira de la naturaleza..." to {_v} for 4 seconds
+                play sound "entity.player.levelup" with volume 1.5 at {_v}
+                give {@recompensa_premio} to {_v}
+                
+        delete {-blizzard::active::%{_v_uuid}%} 
+        delete {-blizzard::host::%{_v_uuid}%}
+        delete {-blizzard::sky_center::%{_v_uuid}%}
+        delete {-blizzard::real_loc::%{_v_uuid}%}
+
+    wait 10 ticks 
+
+    if {_center_cage} is set:
+        set {_del1} to location of {_center_cage}
+        add -23 to x-coordinate of {_del1}
+        add -23 to z-coordinate of {_del1}
+        set y-coordinate of {_del1} to ({@altura_cielo} - 32)
+        set {_del2} to location of {_center_cage}
+        add 23 to x-coordinate of {_del2}
+        add 23 to z-coordinate of {_del2}
+        set y-coordinate of {_del2} to ({@altura_cielo} + 32)
+        
+        set {_blocks_deleted} to 0
+        loop blocks within {_del1} and {_del2}:
+            if loop-block is not air:
+                set loop-block to air
+            add 1 to {_blocks_deleted}
+            if {_blocks_deleted} >= 2000: 
+                set {_blocks_deleted} to 0
+                wait 1 tick
+
+    delete {-blizzard::time_left::%{_host_uuid}%}
+    delete {-blizzard::arena_players::%{_host_uuid}%::*}
+    delete {-blizzard::lock::%{_host_uuid}%}
+    delete {-blizzard::safe_tp::%{_host_uuid}%}
+    delete {-blizzard::thermal_shock::%{_host_uuid}%}
+
+function restaurarJugadorPremium(v: player):
+    set {_uuid} to uuid of {_v}
+    
+    set helmet of {_v} to air
+    remove slowness from {_v}
+    remove nausea from {_v}
+    remove darkness from {_v}
+    remove blindness from {_v}
+    remove fire resistance from {_v}
+    delete {-blizzard::frozen_statue::%{_uuid}%}
+    
+    if {-blizzard::old_level::%{_uuid}%} is set:
+        set level of {_v} to {-blizzard::old_level::%{_uuid}%}
+        set level progress of {_v} to {-blizzard::old_xp::%{_uuid}%}
+        delete {-blizzard::old_level::%{_uuid}%}
+        delete {-blizzard::old_xp::%{_uuid}%}
+    apply resistance 5 to {_v} for 5 seconds
+
+on damage of player:
+    {-blizzard::active::%uuid of victim%} is set
+    if damage cause is not custom:
+        if damage cause is not fire or lava or burn:
+            cancel event

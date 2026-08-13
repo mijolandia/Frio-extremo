@@ -1,0 +1,114 @@
+# ==============================================================================
+# 🌨️ TORMENTA DE GRANIZO DINÁMICA (5 CHUNKS - 100% EVENT DRIVEN)
+# Sin 'every' ni 'wait' | Cero consumo de CPU en reposo
+# ==============================================================================
+
+variables:
+    {granizo::activo} = false
+    {granizo::nivel} = 1
+
+# ------------------------------------------------------------------------------
+# COMANDOS DE CONTROL (/GRANIZO START / STOP / SETNIVEL)
+# ------------------------------------------------------------------------------
+command /granizo [<text>] [<integer>]:
+    permission: admin.granizo
+    permission message: &cNo tienes permisos para controlar el clima.
+    trigger:
+        if arg-1 is "start" or "iniciar":
+            set {granizo::activo} to true
+            set {granizo::nivel} to 1
+            broadcast "&b&l❄ ¡HA COMENZADO UNA TORMENTA DE GRANIZO ABISAL!"
+            broadcast "&7&oEl granizo se moverá contigo en un área de 5 Chunks..."
+        else if arg-1 is "stop" or "detener":
+            set {granizo::activo} to false
+            broadcast "&a&l✔ La tormenta de granizo ha cesado."
+        else if arg-1 is "setnivel":
+            if arg-2 is set:
+                set {granizo::nivel} to arg-2
+                send "&e[Granizo] Nivel ajustado a: &c%{granizo::nivel}%" to sender
+        else:
+            send "&eUso: /granizo [start|stop|setnivel] [numero]" to sender
+
+# ------------------------------------------------------------------------------
+# EVENTO 1: MOVIMIENTO DEL JUGADOR (Desplaza el área de 5 Chunks)
+# ------------------------------------------------------------------------------
+on player move:
+    if {granizo::activo} is true:
+        # OPTIMIZACIÓN: Solo ejecuta si cambió de bloque (evita lag al mover la cámara)
+        if x-coordinate of past location is not x-coordinate of location:
+            set {_procesar} to true
+        else if z-coordinate of past location is not z-coordinate of location:
+            set {_procesar} to true
+        else if y-coordinate of past location is not y-coordinate of location:
+            set {_procesar} to true
+            
+        if {_procesar} is true:
+            # Radio de 40 bloques = 5 Chunks de cobertura total alrededor del jugador
+            loop living entities in radius 40 around player:
+                granizo_procesarEntidad(loop-entity)
+
+# ------------------------------------------------------------------------------
+# EVENTO 2: MOVIMIENTO DE MOBS/ENTIDADES (Si se mueven cerca de un jugador)
+# ------------------------------------------------------------------------------
+on entity move:
+    if {granizo::activo} is true:
+        if event-entity is not a player:
+            # Si el mob está dentro del rango de 5 chunks de algún jugador
+            loop all players in radius 40 around event-entity:
+                granizo_procesarEntidad(event-entity)
+                stop # Procesa 1 sola vez por evento
+
+# ------------------------------------------------------------------------------
+# LÓGICA DE IMPACTO, TECHO Y DAÑO NO LETAL
+# ------------------------------------------------------------------------------
+function granizo_procesarEntidad(e: entity):
+    if {_e} is alive:
+        if type of {_e} is not armor stand:
+            
+            # Cooldown interno de 1.5s por entidad para evitar multihits por cada paso
+            set {_now} to unix timestamp of now
+            if {granizo::cooldown::%{_e}'s uuid%} is set:
+                if {_now} - {granizo::cooldown::%{_e}'s uuid%} < 1.5:
+                    stop
+            set {granizo::cooldown::%{_e}'s uuid%} to {_now}
+
+            # 1. Comprobación de Techo
+            set {_block_top} to highest block at location of {_e}
+            set {_roof_y} to y-coordinate of location of {_block_top}
+            set {_entity_y} to y-coordinate of location of {_e}
+            
+            set {_bajo_techo} to false
+            if {_roof_y} > {_entity_y}:
+                set {_bajo_techo} to true
+
+            # 2. Respuesta según Nivel y Techo
+            set {_recibe_daño} to false
+            
+            if {_bajo_techo} is false:
+                set {_recibe_daño} to true
+            else:
+                # Efectos psicológicos dentro de refugios
+                if {granizo::nivel} is 3:
+                    play sound "block.wood.break" with volume 0.3 and pitch 0.6 at location of {_e}
+                else if {granizo::nivel} is 4:
+                    play sound "block.anvil.land" with volume 0.3 and pitch 1.8 at location of {_e}
+                    if random integer between 1 and 2 is 1:
+                        set {_recibe_daño} to true
+                else if {granizo::nivel} is 5:
+                    play sound "entity.wither.ambient" with volume 0.4 and pitch 0.5 at location of {_e}
+                    set {_recibe_daño} to true
+
+            # 3. Aplicación de Granizo y Animación No Letal
+            if {_recibe_daño} is true:
+                set {_loc} to location of {_e}
+                add 2.5 to y-coordinate of {_loc}
+                spawn 1 snowball at {_loc}
+                
+                play sound "block.glass.break" with volume 0.4 and pitch 1.5 at location of {_e}
+                
+                # MECÁNICA NO LETAL: Nunca baja de 0.5 corazones
+                if health of {_e} > 0.5:
+                    damage {_e} by 0.5 hearts
+                else:
+                    damage {_e} by 0 hearts
+                    play sound "entity.player.hurt" with volume 0.8 and pitch 1.0 at location of {_e}

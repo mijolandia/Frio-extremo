@@ -1,0 +1,1016 @@
+# =====================================================================
+#
+#   ██████╗  ██████╗ ██╗     ███████╗ █████╗ 
+#   ██╔══██╗██╔═══██╗██║     ██╔════╝██╔══██╗
+#   ██████╔╝██║   ██║██║     ███████║███████║
+#   ██╔══██╗██║   ██║██║     ╚════██║██╔══██╗
+#   ██████╔╝╚██████╔╝███████╗███████║██║  ██║
+#   ╚═════╝  ╚═════╝ ╚══════╝╚══════╝╚═╝  ╚═╝
+#
+#             BOLSA DE VALORES DINÁMICA (RGB) - WALL STREET 3.0
+#    Creador: Minecraft_doors | Desarrollo: Gemini & Claude
+#    Colaboradores: Santy (Host) & Mignone (Dueño)
+#    Versión: 3.3 (Edición Completa Unificada - PaperMC 1.21.11)
+#
+# =====================================================================
+
+options:
+    plugin_name: &8[&dBolsaRGB&8]
+    prefix: &8[&6&lWallStreet&8] &7»
+    perm_admin: natureland.bolsa.admin
+    msg_no_perm: &cNo tienes permisos de administrador para usar esto.
+    
+    # Configuración de Tratos Monetarios (Vault)
+    max_dinero_ciclo: 15000
+    pago_por_trato: 3750
+    max_usos_cash: 4
+    reset_cash_segundos: 18000 # 5 Horas
+    
+    # Configuración Anti-Inflación Wall Street (Porcentual)
+    intervalo_horas_deval: 6
+    porcentaje_devaluacion: 0.02 # 2% por ciclo para TODOS por igual
+    saldo_minimo_afectado: 5530 # Límite ajustado a $5,530
+    
+    # Bolsa de Valores & Capitalización Corporativa
+    aporte_por_trato: 13.35 # Dinero añadido al valor bursátil por venta
+    precio_base_accion: 50.00
+    
+    # Configuración del Libro Temporal
+    tiempo_duracion_libro: 600 # 10 Minutos (600 segundos)
+
+# ---------------------------------------------------------------------
+# RECARGA RÁPIDA DEL SKRIPT (/bolsa reload)
+# ---------------------------------------------------------------------
+command /bolsa [<text>]:
+    permission: {@perm_admin}
+    permission message: {@msg_no_perm}
+    trigger:
+        if arg-1 is "reload":
+            send "{@prefix} &eRecargando el sistema bursátil..." to player
+            execute console command "sk reload Semi-plugins/Bolsa"
+        else:
+            send "{@prefix} &7Usa: &a/bolsa reload" to player
+
+# ---------------------------------------------------------------------
+# FORMATEADOR DE NÚMEROS (100k, 1M, 1B, 1T)
+# ---------------------------------------------------------------------
+function formatBolsaNum(n: number) :: text:
+    if {_n} >= 1000000000000:
+        set {_v} to {_n} / 1000000000000
+        return "%round({_v} * 100) / 100%T"
+    if {_n} >= 1000000000:
+        set {_v} to {_n} / 1000000000
+        return "%round({_v} * 100) / 100%B"
+    if {_n} >= 1000000:
+        set {_v} to {_n} / 1000000
+        return "%round({_v} * 100) / 100%M"
+    if {_n} >= 100000:
+        set {_v} to {_n} / 1000
+        return "%round({_v} * 10) / 10%k"
+    return "%round({_n} * 100) / 100%"
+
+# ---------------------------------------------------------------------
+# FUNCIONES AUXILIARES DE TIEMPO Y FORMATO
+# ---------------------------------------------------------------------
+function formatBolsaTimeLeft(target_unix: number) :: text:
+    set {_now_unix} to unix timestamp of now
+    set {_sec} to round({_target_unix} - {_now_unix})
+    
+    if {_sec} <= 0:
+        return "&a¡Ahora!"
+    set {_d} to 0
+    set {_h} to 0
+    set {_m} to 0
+    
+    set {_sec_copy} to {_sec}
+    if {_sec_copy} >= 86400:
+        set {_d} to floor({_sec_copy} / 86400)
+        set {_sec_copy} to {_sec_copy} - ({_d} * 86400)
+    if {_sec_copy} >= 3600:
+        set {_h} to floor({_sec_copy} / 3600)
+        set {_sec_copy} to {_sec_copy} - ({_h} * 3600)
+    if {_sec_copy} >= 60:
+        set {_m} to floor({_sec_copy} / 60)
+        set {_sec_copy} to {_sec_copy} - ({_m} * 60)
+        
+    set {_t} to ""
+    if {_d} > 0:
+        set {_t} to "%{_d}%d "
+    if {_h} > 0:
+        set {_t} to "%{_t}%%{_h}%h "
+    if {_m} > 0:
+        set {_t} to "%{_t}%%{_m}%m "
+    if {_t} is "":
+        set {_t} to "%{_sec_copy}%s"
+    return "&e%{_t}%"
+
+function getHoraMundial(target_unix: number, offset: integer) :: text:
+    set {_local} to {_target_unix} + {_offset}
+    set {_days_epoch} to floor({_local} / 86400)
+    set {_rem_day} to {_local} - ({_days_epoch} * 86400)
+    set {_hour} to floor({_rem_day} / 3600)
+    set {_rem_day} to {_rem_day} - ({_hour} * 3600)
+    set {_minute} to floor({_rem_day} / 60)
+    set {_min_str} to "%{_minute}%"
+    if {_minute} < 10:
+        set {_min_str} to "0%{_minute}%"
+    set {_period} to "AM"
+    if {_hour} >= 12:
+        set {_period} to "PM"
+        if {_hour} > 12:
+            subtract 12 from {_hour}
+    if {_hour} is 0:
+        set {_hour} to 12
+    return "%{_hour}%:%{_min_str}% %{_period}%"
+
+# ---------------------------------------------------------------------
+# VERIFICACIÓN DE BLOQUES SEGUROS (ANTI-CREATIVO 1.21.11)
+# ---------------------------------------------------------------------
+function esItemSeguro(i: item) :: boolean:
+    if {_i} is air:
+        return false
+    if type of {_i} is bedrock or barrier or command block or structure block or structure void:
+        return false
+    set {_n} to "%type of {_i}%"
+    if {_n} contains "command" or "light" or "reinforced_deepslate" or "structure" or "barrier" or "bedrock":
+        return false
+    return true
+
+# ---------------------------------------------------------------------
+# GENERADOR DE NCOINS (PAPEL DE CAÑA CON TEXTO BONITO)
+# ---------------------------------------------------------------------
+function darNCoins(p: player, cantidad: integer, valor_unitario: number):
+    set {_ncoin} to paper named "&6&l[NCOIN] &eBillete de Caña"
+    set line 1 of lore of {_ncoin} to "&8[Divisa Oficial de Wall Street]"
+    set line 2 of lore of {_ncoin} to ""
+    set line 3 of lore of {_ncoin} to "&7Valor nominal: &a$%{_valor_unitario}%"
+    set line 4 of lore of {_ncoin} to "&e▶ Click Derecho para depositar en tu cuenta."
+    give {_cantidad} of {_ncoin} to {_p}
+
+on right click with paper:
+    if name of player's tool contains "&6&l[NCOIN]":
+        cancel event
+        remove 1 of player's tool from player's tool
+        execute console command "eco give %player% 2500"
+        send "{@prefix} &a+ $2,500 depositados en tu cuenta desde el certificado NCOIN." to player
+        play sound "entity.experience_orb.pickup" to player
+
+# ---------------------------------------------------------------------
+# SISTEMA DE REPUTACIÓN Y EMPRESAS
+# ---------------------------------------------------------------------
+function getNombreEmpresa(t: integer) :: text:
+    if {_t} is 1:
+        return "<gradient:#3AD221:#2BAE15>GranjaCubo S.A.</gradient>"
+    if {_t} is 2:
+        return "<gradient:#0CC3E1:#0C8BE1>Industrias Píxel</gradient>"
+    if {_t} is 3:
+        return "<gradient:#E10CE1:#7C0CE1>Arcanos Corp</gradient>"
+    return "Corporación Desconocida"
+
+function getRangoTier(u: text) :: integer:
+    set {_t} to 0
+    if {mercado::tratos_activos::%{_u}%} is set:
+        set {_t} to {mercado::tratos_activos::%{_u}%}
+    if {_t} >= 60:
+        return 3
+    else if {_t} >= 30:
+        return 2
+    else if {_t} >= 10:
+        return 1
+    return 0
+
+function getRangoBonusUsos(tier: integer) :: integer:
+    if {_tier} is 3:
+        return 3
+    else if {_tier} is 2:
+        return 2
+    else if {_tier} is 1:
+        return 1
+    return 0
+
+function getPrecioAccion(emp: integer) :: number:
+    set {_cap} to {mercado::val_empresa::%{_emp}%} ? 0
+    set {_plus} to ({_cap} / 100) * 1.5
+    return round(({@precio_base_accion} + {_plus}) * 100) / 100
+
+function getPrecioETF() :: number:
+    set {_p1} to getPrecioAccion(1)
+    set {_p2} to getPrecioAccion(2)
+    set {_p3} to getPrecioAccion(3)
+    return round((({_p1} + {_p2} + {_p3}) / 3 * 1.05) * 100) / 100
+
+# ---------------------------------------------------------------------
+# CAJAS FUERTES
+# ---------------------------------------------------------------------
+function darCajaFuerte(p: player, emp: integer):
+    set {_n} to getNombreEmpresa({_emp})
+    set {_item} to iron block named "&d&lCaja Fuerte: %{_n}%"
+    set line 1 of lore of {_item} to "&7¡Un contenedor blindado industrial!"
+    set line 2 of lore of {_item} to "&7Contiene recompensas masivas de la empresa."
+    set line 3 of lore of {_item} to ""
+    set line 4 of lore of {_item} to "&eHaz Click Derecho para abrir."
+    give {_item} to {_p}
+
+on right click on iron block:
+    if name of player's tool contains "&d&lCaja Fuerte:":
+        cancel event
+        remove 1 of player's tool from player's tool
+        send " " to player
+        send "&d&l⚡ ABRIENDO CAJA FUERTE CORPORATIVA ⚡" to player
+        play sound "block.chest.open" with volume 1 and pitch 1 to player
+        
+        set {_r} to random integer between 1 and 100
+        if {_r} <= 40:
+            set {_m} to random integer between 15000 and 35000
+            execute console command "eco give %player% %{_m}%"
+            send "  &a✔ &f¡Has extraído &a$%{_m}% &fde fondos reservados!" to player
+        else:
+            set {_amt} to random integer between 16 and 32
+            give {_amt} of diamond to player
+            send "  &a✔ &f¡Encontraste &b%{_amt}% Diamantes&f!" to player
+
+# ---------------------------------------------------------------------
+# ROTACIÓN DE OFERTAS Y EVENTOS
+# ---------------------------------------------------------------------
+function rotarMercadoTotal():
+    clear {mercado::base_mat::*}
+    set {mercado::base_mat::1} to wheat seeds or carrot or potato or sugar cane
+    set {mercado::base_mat::2} to raw iron or raw gold or iron ingot or diamond
+    set {mercado::base_mat::3} to quartz or glowstone dust or ender pearl or gunpowder
+    
+    clear {mercado::give::*}
+    set {mercado::give::1} to diamond or emerald or iron block
+    set {mercado::give::2} to netherite scrap or diamond block or emerald block
+    set {mercado::give::3} to totem of undying or enchanted golden apple or shulker shell
+    
+    loop 3 times:
+        set {_t} to loop-value
+        set {mercado::req_amt::%{_t}%} to random integer between 10 and 64
+        set {mercado::pre_amt::%{_t}%} to random integer between 1 and 8
+        set {mercado::inflacion::%{_t}%} to random integer between -20 and 50
+    set {mercado::unix_rotacion} to unix timestamp of now + 14400
+
+# ---------------------------------------------------------------------
+# SISTEMA DE INFLACIÓN WALL STREET (TELLRAW DINÁMICO DOBLE - FIX SYNTAX)
+# ---------------------------------------------------------------------
+function ejecutarInflacionGlobal(es_simulacion: boolean):
+    set {_total_retirado} to 0
+    set {_jugadores_afectados} to 0
+    set {_limite} to {@saldo_minimo_afectado}
+    
+    delete {_list_afectados::*}
+    delete {_list_candidatos::*}
+    
+    loop all players:
+        set {_bal} to balance of loop-player
+        if {_bal} >= {_limite}:
+            set {_quitar} to {_bal} * {@porcentaje_devaluacion}
+            set {_quitar} to round({_quitar})
+            
+            add {_quitar} to {_total_retirado}
+            add 1 to {_jugadores_afectados}
+            set {_list_afectados::%loop-player's name%} to {_quitar}
+            
+            if {_es_simulacion} is false:
+                execute console command "eco take %loop-player% %{_quitar}%"
+            else:
+                set {mercado::reembolso_test::%uuid of loop-player%} to {_quitar}
+        else:
+            set {_list_candidatos::%loop-player's name%} to {_bal}
+
+    # Armar Top 3 Afectados (de mayor a menor)
+    set {_top_str} to ""
+    if {_jugadores_afectados} > 0:
+        loop 3 times:
+            set {_max_val} to -1
+            set {_max_name} to ""
+            loop {_list_afectados::*}:
+                if loop-value-2 > {_max_val}:
+                    set {_max_val} to loop-value-2
+                    set {_max_name} to loop-index
+            if {_max_name} is not "":
+                set {_val_fmt} to formatBolsaNum({_max_val})
+                set {_top_str} to "%{_top_str}%  &c• &f%{_max_name}%&7: &c-$%{_val_fmt}%%nl%"
+                delete {_list_afectados::%{_max_name}%}
+
+    # Armar Top 3 Candidatos Próximos (de mayor a menor)
+    set {_cand_str} to ""
+    if {_jugadores_afectados} is 0:
+        loop 3 times:
+            set {_max_val} to -1
+            set {_max_name} to ""
+            loop {_list_candidatos::*}:
+                if loop-value-2 > {_max_val}:
+                    set {_max_val} to loop-value-2
+                    set {_max_name} to loop-index
+            if {_max_name} is not "":
+                set {_val_fmt} to formatBolsaNum({_max_val})
+                set {_cand_str} to "%{_cand_str}%  &e• &f%{_max_name}%&7: &a$%{_val_fmt}% &8(&7Límite: &e$%{_limite}%&8)%nl%"
+                delete {_list_candidatos::%{_max_name}%}
+
+    # Envío de Tellraw según si hubo afectados o no
+    if {_jugadores_afectados} > 0:
+        set {_tot_fmt} to formatBolsaNum({_total_retirado})
+        set {_p_word} to "jugadores"
+        if {_jugadores_afectados} is 1:
+            set {_p_word} to "jugador"
+        set {_msg} to "tellraw @a [{""text"":""\n  🏛 BOLETÍN MACROECONÓMICO: WALL STREET MC\n"",""color"":""gold"",""bold"":true},{""text"":""  ───────────────────────────────────────────\n"",""color"":""dark_gray""},{""text"":""  Ajuste del 2%% aplicado a saldos desde $"",""color"":""gray""},{""text"":""%{_limite}%\n\n"",""color"":""yellow""},{""text"":""  ▼ Dinero retirado: "",""color"":""red""},{""text"":""-$%{_tot_fmt}%\n"",""color"":""red"",""bold"":true},{""text"":""  ▼ Cuentas impactadas: "",""color"":""yellow""},{""text"":""%{_jugadores_afectados}% %{_p_word}%\n\n"",""color"":""white""},{""text"":""  &lTOP AFECTADOS:\n"",""color"":""dark_red""},{""text"":""%{_top_str}%\n""}]"
+        execute console command {_msg}
+    else:
+        set {_msg} to "tellraw @a [{""text"":""\n  🏛 BOLETÍN MACROECONÓMICO: ESTABILIDAD TOTAL\n"",""color"":""green"",""bold"":true},{""text"":""  ───────────────────────────────────────────\n"",""color"":""dark_gray""},{""text"":""  Ninguna cuenta superó el límite de $"",""color"":""gray""},{""text"":""%{_limite}%\n"",""color"":""yellow""},{""text"":""  La inflación se mantiene en 0%% para este ciclo.\n\n"",""color"":""gray""},{""text"":""  &lPRÓXIMOS CANDIDATOS AL LÍMITE:\n"",""color"":""gold""},{""text"":""%{_cand_str}%\n""}]"
+        execute console command {_msg}
+
+    if {_es_simulacion} is true:
+        wait 5 seconds
+        broadcast "{@prefix} &a&l¡SIMULACIÓN FINALIZADA! &aSe ha reembolsado el dinero de prueba intacto."
+
+# ---------------------------------------------------------------------
+# INTERFAZ (GUI) PRINCIPAL: MERCADO CENTRAL
+# ---------------------------------------------------------------------
+command /mercado [<text>]:
+    trigger:
+        if arg-1 is "evento":
+            abrirGuiEvento(player)
+            stop
+        if arg-1 is "efectivo" or "cash":
+            abrirGuiEfectivo(player)
+            stop
+        if arg-1 is "acciones" or "etf" or "bolsa":
+            execute player command "/bolsavalores"
+            stop
+            
+        open chest inventory with 3 rows named "&d&lMercado Central" to player
+        set {_gui} to player's current inventory
+        
+        set {_s} to 0
+        loop 27 times:
+            set slot {_s} of {_gui} to gray stained glass pane named " "
+            add 1 to {_s}
+            
+        set slot 18 of {_gui} to oak door named "&c&l◀ Cerrar Menú"
+        set slot 19 of {_gui} to gold ingot named "&d&l🎁 SÚPER EVENTO CORPORATIVO" with lore "&7Haz clic para ver el estado de" and "&7los dividendos y marcas de tiempo."
+        set slot 21 of {_gui} to paper named "&a&l💵 Tratos en NCOINS (Efectivo)" with lore "&7Gana billetes NCOIN o dinero directo." and "&7Límite estricto: &a$15,000 &7por ciclo." and "" and "&e▶ Haz clic para entrar al mercado."
+        set slot 23 of {_gui} to nether star named "&6&l📈 Bolsa de Valores & ETF" with lore "&7Invierte en acciones de las empresas" and "&7o compra el fondo indexado RGB." and "" and "&e▶ Clic para abrir el mercado bursátil."
+        set slot 24 of {_gui} to written book named "&d&l📖 Guía e Inflación" with lore "&7Haz clic para ejecutar /inflacioninfo" and "&7y recibir el manual educativo."
+        set slot 26 of {_gui} to barrier named "&c&l✖ Cerrar"
+        
+        set {_max} to -1
+        set {_top} to "&7¡Ninguna aún!"
+        loop 3 times:
+            set {_val} to {mercado::stats::tier%loop-value%} ? 0
+            if {_val} > {_max}:
+                set {_max} to {_val}
+                set {_top} to getNombreEmpresa(loop-value)
+                
+        set {_t1} to {mercado::stats::tier1} ? 0
+        set {_t2} to {mercado::stats::tier2} ? 0
+        set {_t3} to {mercado::stats::tier3} ? 0
+        set {_uuid} to uuid of player
+        set {_activos_p} to {mercado::tratos_activos::%{_uuid}%} ? 0
+        
+        set slot 20 of {_gui} to emerald named "&a&l📊 REPORTE MENSUAL" with lore "&fLíder del Mes: %{_top}%" and "" and "&7• Ventas GranjaCubo: &f%{_t1}%" and "&7• Ventas Industrias Píxel: &f%{_t2}%" and "&7• Ventas Arcanos Corp: &f%{_t3}%" and "" and "&dTu Actividad: &e%{_activos_p}% pts"
+
+        set {_time_rot} to formatBolsaTimeLeft({mercado::unix_rotacion})
+        set {_time_res} to formatBolsaTimeLeft({mercado::unix_reset_usos})
+
+        loop 3 times:
+            set {_t} to loop-value
+            set {_inf} to {mercado::inflacion::%{_t}%} ? 0
+            set {_amt_costo} to {mercado::req_amt::%{_t}%}
+            set {_inf_factor} to 1 + ({_inf} / 100)
+            set {_amt_costo} to round({_amt_costo} * {_inf_factor})
+            if {_amt_costo} < 1:
+                set {_amt_costo} to 1
+                
+            set {_inf_vis} to "%{_inf}%"
+            if {_inf} >= 0:
+                set {_inf_vis} to "+%{_inf}%"
+                
+            set {_emp_n} to getNombreEmpresa({_t})
+            set {_cap_fmt} to formatBolsaNum({mercado::val_empresa::%{_t}%} ? 0)
+            
+            set {_tier} to getRangoTier({_uuid})
+            set {_max_usos} to 10 + getRangoBonusUsos({_tier})
+            set {_usados} to {mercado::usos::%{_uuid}%_%{_t}%} ? 0
+            set {_disponibles} to {_max_usos} - {_usados}
+            if {_disponibles} < 0:
+                set {_disponibles} to 0
+            
+            if {_t} is 1:
+                set {_slot_req} to 1
+                set {_slot_pre} to 10
+            else if {_t} is 2:
+                set {_slot_req} to 4
+                set {_slot_pre} to 13
+            else:
+                set {_slot_req} to 7
+                set {_slot_pre} to 16
+                
+            set slot {_slot_req} of {_gui} to {mercado::base_mat::%{_t}%} with lore {_emp_n} and "&8↓ Demanda de Recursos:" and "" and "&cDebes entregar: &f%{_amt_costo}%" and "&7Capitalización: &e$%{_cap_fmt}%" and "&d📈 Inflación: &e%{_inf_vis}%%%" and "" and "&f📊 &lESTADO DE TU CONTRATO:" and "&7• Contratos libres: &a%{_disponibles}%&7/&e%{_max_usos}%" and "&7• Reinicio de cuota (2h): %{_time_res}%" and "&7• Próxima rotación (4h): %{_time_rot}%" and "" and "&e▶ ¡Clic izquierdo para vender!"
+            set {_amt_premio} to {mercado::pre_amt::%{_t}%}
+            set {_bonus_txt} to ""
+            if {mercado::evento::activo} is set:
+                if {mercado::evento::empresa} is {_t}:
+                    set {_amt_premio} to {_amt_premio} * 2
+                    set {_bonus_txt} to "&d&l⚡ SÚPER RACHA: PREMIO x2"
+                    
+            set slot {_slot_pre} of {_gui} to {mercado::give::%{_t}%} with lore {_emp_n} and "&8↑ Retribución Asegurada:" and "" and "&aRecibirás: &a%{_amt_premio}%" and {_bonus_txt} and "" and "&e▶ ¡Clic para procesar contrato!"
+
+# ---------------------------------------------------------------------
+# INTERFAZ BURSÁTIL: ACCIONES Y FONDO ETF
+# ---------------------------------------------------------------------
+command /bolsavalores:
+    aliases: /acciones, /etf
+    trigger:
+        open chest inventory with 3 rows named "&6&lBolsa de Valores & ETF" to player
+        set {_gui} to player's current inventory
+        
+        set {_s} to 0
+        loop 27 times:
+            set slot {_s} of {_gui} to gray stained glass pane named " "
+            add 1 to {_s}
+            
+        set slot 18 of {_gui} to oak door named "&c&l◀ Volver al Mercado"
+        
+        loop 3 times:
+            set {_t} to loop-value
+            set {_name} to getNombreEmpresa({_t})
+            set {_price} to getPrecioAccion({_t})
+            set {_cap} to formatBolsaNum({mercado::val_empresa::%{_t}%} ? 0)
+            set {_mis_acc} to {mercado::acciones::%player's uuid%_%{_t}%} ? 0
+            
+            if {_t} is 1:
+                set {_slot} to 10
+            else if {_t} is 2:
+                set {_slot} to 12
+            else:
+                set {_slot} to 14
+                
+            set slot {_slot} of {_gui} to paper named "&e&lAcción: %{_name}%" with lore "&8[Cotización Bursátil Individual]" and "" and "&7Precio por Acción: &a$%{_price}%" and "&7Capitalización Real: &e$%{_cap}%" and "&7Tus Acciones: &b%{_mis_acc}%" and "" and "&a▶ Clic Izquierdo para COMPRAR (1)" and "&c▶ Clic Derecho para VENDER (1)"
+            
+        set {_p_etf} to getPrecioETF()
+        set {_mis_etf} to {mercado::acciones::%player's uuid%_etf} ? 0
+        set slot 16 of {_gui} to nether star named "&d&lFondo ETF: RGB Index" with lore "&8[Fondo Cotizado Diversificado]" and "" and "&7Combina las 3 empresas del servidor" and "&7con menor riesgo de volatilidad." and "" and "&7Precio por Participación: &a$%{_p_etf}%" and "&7Tus Participaciones: &d%{_mis_etf}%" and "" and "&a▶ Clic Izquierdo para COMPRAR (1)" and "&c▶ Clic Derecho para VENDER (1)"
+
+# ---------------------------------------------------------------------
+# CONTROLADOR DE TRATOS (SUMA $13.35 A LA EMPRESA POR TRATO)
+# ---------------------------------------------------------------------
+function procesarAporteEmpresa(t: integer):
+    set {mercado::val_empresa::%{_t}%} to ({mercado::val_empresa::%{_t}%} ? 0) + {@aporte_por_trato}
+
+# ---------------------------------------------------------------------
+# GUI SECUNDARIA: TRATOS EN NCOINS (EFECTIVO)
+# ---------------------------------------------------------------------
+function abrirGuiEfectivo(p: player):
+    open chest inventory with 3 rows named "&a&lTratos en NCOINS" to {_p}
+    set {_gui} to {_p}'s current inventory
+    
+    set {_s} to 0
+    loop 27 times:
+        set slot {_s} of {_gui} to gray stained glass pane named " "
+        add 1 to {_s}
+        
+    set slot 18 of {_gui} to oak door named "&c&l◀ Volver al Mercado"
+    
+    set {_uuid} to uuid of {_p}
+    set {_usados} to {mercado::usos_cash::%{_uuid}%} ? 0
+    set {_restantes} to {@max_usos_cash} - {_usados}
+    if {_restantes} < 0:
+        set {_restantes} to 0
+        
+    set {_ganado_total} to {_usados} * {@pago_por_trato}
+    set {_time_res} to formatBolsaTimeLeft({mercado::unix_reset_cash})
+
+    set slot 13 of {_gui} to paper named "&a&l💵 Contrato de Liquidez NCOIN" with lore "&7Entrega materia prima pesada a cambio" and "&7de billetes NCOIN o pago en efectivo." and "" and "&f💰 Pago por trato: &a${@pago_por_trato}" and "&f📊 Límite por ciclo: &e$%{_ganado_total}%&7/&e$15,000" and "&f🎫 Tratos disponibles: &a%{_restantes}%&7/&e{@max_usos_cash}" and "&f⏳ Reinicio de cupo: %{_time_res}%" and "" and "&eRequisito: &f64 de Trigo o 32 de Hierro" and "" and "&e▶ ¡Haz Clic para vender por efectivo!"
+
+# ---------------------------------------------------------------------
+# GUI SECUNDARIA: PANEL DEL SÚPER EVENTO
+# ---------------------------------------------------------------------
+function abrirGuiEvento(p: player):
+    open chest inventory with 3 rows named "&d&lPanel del Súper Evento" to {_p}
+    set {_gui} to {_p}'s current inventory
+    
+    set {_s} to 0
+    loop 27 times:
+        set slot {_s} of {_gui} to gray stained glass pane named " "
+        add 1 to {_s}
+        
+    set slot 18 of {_gui} to oak door named "&c&l◀ Volver a la Bolsa"
+    
+    set {_t_unix} to {mercado::evento::unix_fin}
+    if {mercado::evento::activo} is not set:
+        set {_t_unix} to {mercado::evento::unix_mes}
+    
+    set slot 14 of {_gui} to compass named "&b🌍 Horarios Internacionales" with lore "&7Horarios de activation del Evento:" and "" and "&f🇸𝑽 Centroamérica: &e%getHoraMundial({_t_unix}, -21600)%" and "&f🇲🇽 México: &e%getHoraMundial({_t_unix}, -21600)%" and "&f🇪🇸 España: &e%getHoraMundial({_t_unix}, 7200)%"
+    
+    if {mercado::evento::activo} is not set:
+        set {_time_string} to formatBolsaTimeLeft({mercado::evento::unix_mes})
+        set slot 13 of {_gui} to clock named "&e&lESTADO DEL MACRO-CONTRATO" with lore "&7Progreso: &fFase de Acumulación (30 días)" and "" and "&f⌛ Súper Evento en: &a%{_time_string}%"
+    else:
+        set {_time_string} to formatBolsaTimeLeft({mercado::evento::unix_fin})
+        set {_emp_name} to getNombreEmpresa({mercado::evento::empresa})
+        set slot 13 of {_gui} to beacon named "&d&l🔥 SÚPER EVENTO ACTIVO" with lore "&7Beneficiada: %{_emp_name}%" and "" and "&f🚨 Fin del evento en: &c%{_time_string}%"
+
+    set {_uuid} to uuid of {_p}
+    set {_tratos_mes} to {mercado::total_tratos::%{_uuid}%} ? 0
+    
+    if {mercado::evento::activo} is not set:
+        set slot 22 of {_gui} to chest minecart named "&c&lDividendos Bloqueados" with lore "&7Solo se abren durante los 4 días" and "&7del Súper Evento Corporativo." and "" and "&7Tus tratos este mes: &e%{_tratos_mes}%"
+    else:
+        if {mercado::evento::reclamado::%{_uuid}%} is set:
+            set slot 22 of {_gui} to redstone block named "&c&lDividendos ya Cobrados" with lore "&7Ya has retirado tus fondos de este mes."
+        else:
+            set slot 22 of {_gui} to diamond block named "&d&lCobrar Dividendos" with lore "&7Requisitos cumplidos (&e%{_tratos_mes}% &7tratos)" and "" and "&e▶ ¡Haz clic aquí para cobrar!"
+
+# ---------------------------------------------------------------------
+# PANEL DE ADMINISTRACIÓN
+# ---------------------------------------------------------------------
+function abrirGuiAdmin(p: player):
+    open chest inventory with 3 rows named "&6&lPanel Admin: Wall Street" to {_p}
+    set {_gui} to {_p}'s current inventory
+    
+    set {_s} to 0
+    loop 27 times:
+        set slot {_s} of {_gui} to black stained glass pane named " "
+        add 1 to {_s}
+        
+    set slot 10 of {_gui} to repeater named "&b&l🔄 Rotar Ofertas Básicas" with lore "&7Cambia ítems, demandas e inflación al azar." and "&c&lNO toca el contador mensual de 30 días." and "" and "&e▶ Haz Clic para rotar mercado básico."
+    set slot 11 of {_gui} to paper named "&e&l🧪 Probar Inflación + Reembolso" with lore "&7Ejecuta el cálculo global de Wall Street," and "&7muestra el boletín en chat y reembolsa" and "&7el dinero para probar sin culpa." and "" and "&e▶ Clic para testear Wall Street."
+    set slot 12 of {_gui} to clock named "&d&l⏳ Adelantar 5 Días" with lore "&7Avanza matemáticamente los contadores." and "" and "&e▶ Haz Clic para saltar el tiempo."
+    
+    set {_hype_txt} to "&aEstado: &fInactivo"
+    if {mercado::fake_traffic::unix_fin} is set:
+        set {_hype_left} to formatBolsaTimeLeft({mercado::fake_traffic::unix_fin})
+        set {_hype_txt} to "&d&lACTIVO &7(Finaliza en: %{_hype_left}%)"
+    set slot 14 of {_gui} to firework rocket named "&e&l🔥 Hype Falso Temporal (5 Min)" with lore "&7Simula una oleada masiva de tráfico falso." and "%{_hype_txt}%" and "" and "&e▶ Clic para activar/desactivar."
+    set slot 15 of {_gui} to hopper named "&a&l🛠 Editor de Ítems Seguros" with lore "&7Configura manualmente los ítems de demanda" and "&7y recompensas de forma visual." and "" and "&e▶ Clic para abrir el editor."
+    set slot 16 of {_gui} to beacon named "&d&l⚡ Forzar Súper Evento" with lore "&7Inicia inmediatamente la fase de 4 días" and "&7de dividendos x2 y cobro masivo." and "" and "&e▶ Clic para forzar evento."
+    set slot 22 of {_gui} to barrier named "&c&l⚠ Reiniciar Sistema Total" with lore "&7Resetea estadísticas, empresas y contadores." and "&c&lUSAR SOLO EN CASO DE EMERGENCIA." and "" and "&e▶ Clic para reiniciar todo."
+
+# ---------------------------------------------------------------------
+# EDITOR VISUAL DE ÍTEMS SEGUROS (GUI ADMIN)
+# ---------------------------------------------------------------------
+function abrirEditorSeguro(p: player):
+    open chest inventory with 4 rows named "&d&lEditor de Ítems Seguros" to {_p}
+    set {_gui} to {_p}'s current inventory
+    
+    set {_s} to 0
+    loop 36 times:
+        set slot {_s} of {_gui} to black stained glass pane named " "
+        add 1 to {_s}
+        
+    # Encabezados de Empresas (Fila 1)
+    set slot 2 of {_gui} to {mercado::base_mat::1} ? wheat seeds named "&a&lGranjaCubo S.A." with lore "&7Coloca en la columna de abajo qué PIDE y qué DA."
+    set slot 4 of {_gui} to {mercado::base_mat::2} ? raw iron named "&b&lIndustrias Píxel" with lore "&7Coloca en la columna de abajo qué PIDE y qué DA."
+    set slot 6 of {_gui} to {mercado::base_mat::3} ? quartz named "&d&lArcanos Corp" with lore "&7Coloca en la columna de abajo qué PIDE y qué DA."
+    
+    # Etiquetas de fila (Slots 9 y 18)
+    set slot 9 of {_gui} to hopper named "&e&l↓ LO QUE PIDEN (Demanda)" with lore "&7Slots editables: 11, 13 y 15"
+    set slot 18 of {_gui} to chest named "&a&l↑ LO QUE DAN (Premio)" with lore "&7Slots editables: 20, 22 y 24"
+    
+    # Slots editables de Demanda (Fila 2: Slots 11, 13, 15)
+    set slot 11 of {_gui} to {mercado::base_mat::1} ? wheat seeds
+    set slot 13 of {_gui} to {mercado::base_mat::2} ? raw iron
+    set slot 15 of {_gui} to {mercado::base_mat::3} ? quartz
+    
+    # Slots editables de Premio (Fila 3: Slots 20, 22, 24)
+    set slot 20 of {_gui} to {mercado::give::1} ? diamond
+    set slot 22 of {_gui} to {mercado::give::2} ? netherite scrap
+    set slot 24 of {_gui} to {mercado::give::3} ? totem of undying
+    
+    # Botón de Guardado
+    set slot 31 of {_gui} to emerald block named "&a&l✔ GUARDAR Y APLICAR CAMBIOS" with lore "&7Valida que ningún bloque sea ilegal" and "&7y guarda los materiales de la bolsa."
+
+# ---------------------------------------------------------------------
+# MANEJADOR DE EVENTOS DE INTERFAZ (GUI LISTENERS)
+# ---------------------------------------------------------------------
+on inventory click:
+    if name of player's current inventory is "&d&lMercado Central":
+        cancel event
+        if clicked slot is 18 or 26:
+            close player's inventory
+        if clicked slot is 19:
+            abrirGuiEvento(player)
+            play sound "ui.button.click" to player
+        if clicked slot is 21:
+            abrirGuiEfectivo(player)
+            play sound "ui.button.click" to player
+        if clicked slot is 23:
+            execute player command "/bolsavalores"
+            play sound "ui.button.click" to player
+        if clicked slot is 24:
+            execute player command "/inflacioninfo"
+            close player's inventory
+            
+        if clicked slot is 1 or 4 or 7 or 10 or 13 or 16:
+            if clicked slot is 1 or 10:
+                set {_t} to 1
+            else if clicked slot is 4 or 13:
+                set {_t} to 2
+            else:
+                set {_t} to 3
+                
+            set {_uuid} to uuid of player
+            set {_tier} to getRangoTier({_uuid})
+            set {_max_usos} to 10 + getRangoBonusUsos({_tier})
+            set {_usados} to {mercado::usos::%{_uuid}%_%{_t}%} ? 0
+            
+            if {_usados} >= {_max_usos}:
+                set {_time_res} to formatBolsaTimeLeft({mercado::unix_reset_usos})
+                send "{@prefix} &cTus contratos para esta empresa están agotados." to player
+                send "{@prefix} &7Tus contratos se liberan en: &e%{_time_res}%" to player
+                play sound "entity.villager.no" to player
+                close player's inventory
+                stop
+                
+            set {_inf} to {mercado::inflacion::%{_t}%} ? 0
+            set {_amt_costo} to {mercado::req_amt::%{_t}%}
+            set {_inf_factor} to 1 + ({_inf} / 100)
+            set {_amt_costo} to round({_amt_costo} * {_inf_factor})
+            if {_amt_costo} < 1:
+                set {_amt_costo} to 1
+                
+            set {_mat} to {mercado::base_mat::%{_t}%}
+            if player has {_amt_costo} of {_mat}:
+                remove {_amt_costo} of {_mat} from player's inventory
+                
+                set {_amt_premio} to {mercado::pre_amt::%{_t}%}
+                if {mercado::evento::activo} is set:
+                    if {mercado::evento::empresa} is {_t}:
+                        set {_amt_premio} to {_amt_premio} * 2
+                        
+                give {_amt_premio} of {mercado::give::%{_t}%} to player
+                add 1 to {mercado::usos::%{_uuid}%_%{_t}%}
+                add 1 to {mercado::stats::tier%{_t}%}
+                add 1 to {mercado::total_tratos::%{_uuid}%}
+                add 1 to {mercado::tratos_activos::%{_uuid}%}
+                procesarAporteEmpresa({_t})
+                
+                send "{@prefix} &a✔ ¡Contrato procesado con éxito!" to player
+                play sound "entity.experience_orb.pickup" to player
+                execute player command "/mercado"
+            else:
+                send "{@prefix} &cNo tienes los materiales requeridos en tu inventario." to player
+                play sound "entity.villager.no" to player
+                close player's inventory
+
+    if name of player's current inventory is "&6&lBolsa de Valores & ETF":
+        cancel event
+        if clicked slot is 18:
+            execute player command "/mercado"
+            play sound "ui.button.click" to player
+            stop
+            
+        if clicked slot is 10 or 12 or 14:
+            if clicked slot is 10:
+                set {_t} to 1
+            else if clicked slot is 12:
+                set {_t} to 2
+            else:
+                set {_t} to 3
+                
+            set {_price} to getPrecioAccion({_t})
+            set {_emp_n} to getNombreEmpresa({_t})
+            
+            if click type is left mouse button:
+                if balance of player >= {_price}:
+                    execute console command "eco take %player% %{_price}%"
+                    add 1 to {mercado::acciones::%player's uuid%_%{_t}%}
+                    send "{@prefix} &a+1 Acción de %{_emp_n}% comprada por &a$%{_price}%&a." to player
+                    play sound "entity.experience_orb.pickup" to player
+                    execute player command "/bolsavalores"
+                else:
+                    send "{@prefix} &cNo tienes suficiente saldo para comprar esta acción." to player
+            if click type is right mouse button:
+                if ({mercado::acciones::%player's uuid%_%{_t}%} ? 0) >= 1:
+                    subtract 1 from {mercado::acciones::%player's uuid%_%{_t}%}
+                    execute console command "eco give %player% %{_price}%"
+                    send "{@prefix} &e-1 Acción de %{_emp_n}% vendida por &a$%{_price}%&e." to player
+                    play sound "entity.experience_orb.pickup" to player
+                    execute player command "/bolsavalores"
+                else:
+                    send "{@prefix} &cNo tienes acciones de esta empresa para vender." to player
+
+        if clicked slot is 16:
+            set {_price} to getPrecioETF()
+            if click type is left mouse button:
+                if balance of player >= {_price}:
+                    execute console command "eco take %player% %{_price}%"
+                    add 1 to {mercado::acciones::%player's uuid%_etf}
+                    send "{@prefix} &d+1 Participación ETF RGB Index comprada por &a$%{_price}%&d." to player
+                    play sound "entity.experience_orb.pickup" to player
+                    execute player command "/bolsavalores"
+                else:
+                    send "{@prefix} &cNo tienes suficiente saldo para invertir en el ETF." to player
+            if click type is right mouse button:
+                if ({mercado::acciones::%player's uuid%_etf} ? 0) >= 1:
+                    subtract 1 from {mercado::acciones::%player's uuid%_etf}
+                    execute console command "eco give %player% %{_price}%"
+                    send "{@prefix} &e-1 Participación ETF vendida por &a$%{_price}%&e." to player
+                    play sound "entity.experience_orb.pickup" to player
+                    execute player command "/bolsavalores"
+                else:
+                    send "{@prefix} &cNo tienes participaciones de este ETF para vender." to player
+
+    if name of player's current inventory is "&a&lTratos en NCOINS":
+        cancel event
+        if clicked slot is 18:
+            execute player command "/mercado"
+            play sound "ui.button.click" to player
+            stop
+            
+        if clicked slot is 13:
+            set {_uuid} to uuid of player
+            set {_usados} to {mercado::usos_cash::%{_uuid}%} ? 0
+            if {_usados} >= {@max_usos_cash}:
+                set {_time_res} to formatBolsaTimeLeft({mercado::unix_reset_cash})
+                send "{@prefix} &cHas alcanzado el límite de $15,000 en tratos en efectivo para este ciclo." to player
+                send "{@prefix} &7Se renovarán en: &e%{_time_res}%" to player
+                play sound "entity.villager.no" to player
+                close player's inventory
+                stop
+                
+            if player has 64 of wheat:
+                remove 64 of wheat from player's inventory
+            else if player has 32 of iron ingot:
+                remove 32 of iron ingot from player's inventory
+            else:
+                send "{@prefix} &cNecesitas 64 de Trigo o 32 de Lingotes de Hierro." to player
+                play sound "entity.villager.no" to player
+                close player's inventory
+                stop
+                
+            darNCoins(player, 1, 2500)
+            execute console command "eco give %player% 1250"
+            add 1 to {mercado::usos_cash::%{_uuid}%}
+            send "{@prefix} &a✔ ¡Trato cerrado! Recibiste un &6[NCOIN] &ay saldo. (&e%{_usados} + 1%&7/&e{@max_usos_cash}&a)" to player
+            play sound "entity.experience_orb.pickup" to player
+            abrirGuiEfectivo(player)
+
+    if name of player's current inventory is "&d&lPanel del Súper Evento":
+        cancel event
+        if clicked slot is 18:
+            execute player command "/mercado"
+            play sound "ui.button.click" to player
+            stop
+            
+        if clicked slot is 22:
+            if {mercado::evento::activo} is set:
+                set {_uuid} to uuid of player
+                if {mercado::evento::reclamado::%{_uuid}%} is not set:
+                    set {mercado::evento::reclamado::%{_uuid}%} to true
+                    execute console command "eco give %player% 25000"
+                    give 2 of diamond block to player
+                    send "{@prefix} &a¡Dividendos cobrados con éxito! Recibiste $25,000 y 2 Bloques de Diamante." to player
+                    play sound "ui.toast.challenge_complete" to player
+                    close player's inventory
+
+    if name of player's current inventory is "&6&lPanel Admin: Wall Street":
+        cancel event
+        if clicked slot is 10:
+            execute player command "/bolsaadmin rotar"
+            abrirGuiAdmin(player)
+        if clicked slot is 11:
+            close player's inventory
+            ejecutarInflacionGlobal(true)
+        if clicked slot is 12:
+            execute player command "/bolsaadmin adelantardias 5"
+            abrirGuiAdmin(player)
+        if clicked slot is 14:
+            execute player command "/bolsaadmin trafico"
+            abrirGuiAdmin(player)
+        if clicked slot is 15:
+            abrirEditorSeguro(player)
+        if clicked slot is 16:
+            execute player command "/bolsaadmin forzarevento"
+            close player's inventory
+        if clicked slot is 22:
+            execute player command "/bolsaadmin reiniciar"
+            close player's inventory
+
+    if name of player's current inventory is "&d&lEditor de Ítems Seguros":
+        if clicked inventory is not player's inventory:
+            # Slots editables de Demanda (11, 13, 15) y Premio (20, 22, 24)
+            if clicked slot is not 11 or 13 or 15 or 20 or 22 or 24 or 31:
+                cancel event
+                
+            if clicked slot is 31:
+                cancel event
+                set {_m1} to slot 11 of player's current inventory
+                set {_m2} to slot 13 of player's current inventory
+                set {_m3} to slot 15 of player's current inventory
+                set {_p1} to slot 20 of player's current inventory
+                set {_p2} to slot 22 of player's current inventory
+                set {_p3} to slot 24 of player's current inventory
+                
+                if esItemSeguro({_m1}) is false:
+                    send "{@prefix} &cEl material de GranjaCubo es inválido o un bloque ilegal." to player
+                    stop
+                if esItemSeguro({_m2}) is false:
+                    send "{@prefix} &cEl material de Industrias Píxel es inválido o un bloque ilegal." to player
+                    stop
+                if esItemSeguro({_m3}) is false:
+                    send "{@prefix} &cEl material de Arcanos Corp es inválido o un bloque ilegal." to player
+                    stop
+                if esItemSeguro({_p1}) is false:
+                    send "{@prefix} &cEl premio de GranjaCubo es inválido o un bloque ilegal." to player
+                    stop
+                if esItemSeguro({_p2}) is false:
+                    send "{@prefix} &cEl premio de Industrias Píxel es inválido o un bloque ilegal." to player
+                    stop
+                if esItemSeguro({_p3}) is false:
+                    send "{@prefix} &cEl premio de Arcanos Corp es inválido o un bloque ilegal." to player
+                    stop
+                    
+                set {mercado::base_mat::1} to {_m1}
+                set {mercado::base_mat::2} to {_m2}
+                set {mercado::base_mat::3} to {_m3}
+                set {mercado::give::1} to {_p1}
+                set {mercado::give::2} to {_p2}
+                set {mercado::give::3} to {_p3}
+                
+                send "{@prefix} &a✔ ¡Demandas y premios guardados correctamente en la base de datos!" to player
+                play sound "entity.player.levelup" to player
+                close player's inventory
+
+# ---------------------------------------------------------------------
+# COMANDO CENTRALIZADO DE ADMINISTRACIÓN
+# ---------------------------------------------------------------------
+command /bolsaadmin [<text>] [<player>] [<integer>]:
+    permission: {@perm_admin}
+    permission message: {@msg_no_perm}
+    trigger:
+        if arg-1 is not set:
+            abrirGuiAdmin(player)
+            stop
+            
+        if arg-1 is "rotar":
+            rotarMercadoTotal()
+            send "{@prefix} &aMercado básico rotado. El contador de 30 días se mantiene intacto." to player
+            stop
+            
+        if arg-1 is "resetusos":
+            if arg-2 is set:
+                set {_u} to uuid of arg-2
+                delete {mercado::usos::%{_u}%_1}
+                delete {mercado::usos::%{_u}%_2}
+                delete {mercado::usos::%{_u}%_3}
+                delete {mercado::usos_cash::%{_u}%}
+                send "{@prefix} &aContratos y cupos de efectivo reiniciados para &e%arg-2%&a." to player
+            else:
+                delete {mercado::usos::*}
+                delete {mercado::usos_cash::*}
+                set {mercado::unix_reset_usos} to unix timestamp of now + 7200
+                set {mercado::unix_reset_cash} to unix timestamp of now + {@reset_cash_segundos}
+                send "{@prefix} &aContratos de todos los jugadores reseteados." to player
+            stop
+
+        if arg-1 is "adelantardias":
+            set {_dias} to arg-3 ? 1
+            set {_sec} to {_dias} * 86400
+            
+            if {mercado::evento::unix_mes} is set:
+                subtract {_sec} from {mercado::evento::unix_mes}
+            if {mercado::evento::unix_fin} is set:
+                subtract {_sec} from {mercado::evento::unix_fin}
+            if {mercado::unix_rotacion} is set:
+                subtract {_sec} from {mercado::unix_rotacion}
+            if {mercado::unix_reset_usos} is set:
+                subtract {_sec} from {mercado::unix_reset_usos}
+            if {mercado::unix_reset_cash} is set:
+                subtract {_sec} from {mercado::unix_reset_cash}
+                
+            send "{@prefix} &eTiempo del servidor adelantado matemáticamente en %{_dias}% días." to player
+            stop
+
+        if arg-1 is "trafico" or "hype":
+            if {mercado::fake_traffic::unix_fin} is set:
+                clear {mercado::fake_traffic::unix_fin}
+                clear {mercado::fake_traffic::empresa}
+                send "{@prefix} &cHype Falso cancelado manualmente." to player
+            else:
+                set {mercado::fake_traffic::empresa} to random integer between 1 and 3
+                set {mercado::fake_traffic::unix_fin} to unix timestamp of now + 300
+                set {_fake_amount} to random integer between 150 and 300
+                add {_fake_amount} to {mercado::stats::tier%{mercado::fake_traffic::empresa}%}
+                set {_emp_n} to getNombreEmpresa({mercado::fake_traffic::empresa})
+                send "{@prefix} &d&l¡HYPE FALSO INICIADO! &fLa empresa %{_emp_n}% &fahora simula tener &e%{_fake_amount}% tratos&f." to player
+                send "{@prefix} &7Este efecto expirará automáticamente en 5 minutos reales." to player
+            stop
+
+        if arg-1 is "forzarevento":
+            set {mercado::evento::activo} to true
+            set {mercado::evento::empresa} to random integer between 1 and 3
+            set {mercado::evento::unix_fin} to unix timestamp of now + 345600
+            set {_emp_n} to getNombreEmpresa({mercado::evento::empresa})
+            broadcast " "
+            broadcast "{@prefix} &d&l¡SÚPER EVENTO ACTIVADO POR EL ADMINISTRADOR!"
+            broadcast "{@prefix} &fLa empresa del mes es: %{_emp_n}%"
+            broadcast " "
+            stop
+
+        if arg-1 is "reiniciar":
+            clear {mercado::evento::activo}
+            clear {mercado::evento::empresa}
+            clear {mercado::evento::reclamado::*}
+            clear {mercado::fake_traffic::unix_fin}
+            clear {mercado::fake_traffic::empresa}
+            clear {mercado::stats::tier1}
+            clear {mercado::stats::tier2}
+            clear {mercado::stats::tier3}
+            delete {mercado::usos::*}
+            delete {mercado::usos_cash::*}
+            set {mercado::unix_reset_usos} to unix timestamp of now + 7200
+            set {mercado::unix_reset_cash} to unix timestamp of now + {@reset_cash_segundos}
+            set {mercado::evento::unix_mes} to unix timestamp of now + 2592000
+            rotarMercadoTotal()
+            send "{@prefix} &eBolsa RGB completamente reseteada al día 1." to player
+            stop
+
+# ---------------------------------------------------------------------
+# COMANDO EDUCATIVO Y LIBRO TEMPORAL
+# ---------------------------------------------------------------------
+command /inflacioninfo:
+    trigger:
+        execute console command "tellraw %player% [{""text"":""\n  📚 GUÍA RÁPIDA DE INFLACIÓN (EN MINECRAFT)\n"",""color"":""gold"",""bold"":true},{""text"":""  ───────────────────────────────────────────\n"",""color"":""dark_gray""},{""text"":""  • ¿Por qué baja el dinero?: "",""color"":""yellow"",""bold"":true},{""text"":""Si todos acumulan millones sin gastar, los ítems pierden valor.\n"",""color"":""gray""},{""text"":""  • ¿Cómo evitarlo?: "",""color"":""yellow"",""bold"":true},{""text"":""Invierte en Acciones (/bolsavalores), ETF, Cajas Fuertes o Tier.\n"",""color"":""gray""},{""text"":""  • Regla del 2%%: "",""color"":""yellow"",""bold"":true},{""text"":""Cada 6h, saldos mayores a $"",""color"":""gray""},{""text"":""{@saldo_minimo_afectado}"",""color"":""yellow""},{""text"":"" se reducen un 2%%.\n\n"",""color"":""gray""}]"
+        
+        set {_b} to written book named "&d&lGuía: Inflación Explicada"
+        set line 1 of lore of {_b} to "&8[ÍTEM TEMPORAL DE GUÍA]"
+        set line 2 of lore of {_b} to "&cSe autodestruirá en 10 minutos."
+        set line 3 of lore of {_b} to "&7No comerciable / No almacenable."
+        give {_b} to player
+        
+        set {_uuid} to uuid of player
+        set {mercado::libro_expire::%{_uuid}%} to unix timestamp of now + {@tiempo_duracion_libro}
+
+# ---------------------------------------------------------------------
+# SEGURIDAD ANTI-EXPLOIT DEL LIBRO
+# ---------------------------------------------------------------------
+every 10 seconds:
+    loop all players:
+        set {_uuid} to uuid of loop-player
+        if {mercado::libro_expire::%{_uuid}%} is set:
+            if unix timestamp of now >= {mercado::libro_expire::%{_uuid}%}:
+                loop items in loop-player's inventory:
+                    if name of loop-value-2 contains "Inflación Explicada":
+                        remove loop-value-2 from loop-player's inventory
+                loop items in loop-player's enderchest:
+                    if name of loop-value-2 contains "Inflación Explicada":
+                        remove loop-value-2 from loop-player's enderchest
+                delete {mercado::libro_expire::%{_uuid}%}
+                send "{@prefix} &cEl libro de guía de inflación ha caducado y fue destruido." to loop-player
+
+# ---------------------------------------------------------------------
+# TAREAS PERIÓDICAS Y TEMPORIZADORES (AUTOMATIZACIÓN)
+# ---------------------------------------------------------------------
+every 1 minute:
+    # 1. Macro-Contrato Mensual (30 Días / Súper Evento de 4 Días)
+    if {mercado::evento::unix_mes} is not set:
+        set {mercado::evento::unix_mes} to unix timestamp of now + 2592000
+    else if unix timestamp of now >= {mercado::evento::unix_mes}:
+        if {mercado::evento::activo} is not set:
+            set {mercado::evento::activo} to true
+            set {mercado::evento::empresa} to random integer between 1 and 3
+            set {mercado::evento::unix_fin} to unix timestamp of now + 345600 # 4 Días (345600s)
+            set {_emp_n} to getNombreEmpresa({mercado::evento::empresa})
+            broadcast " "
+            broadcast "{@prefix} &d&l¡HA COMANZADO EL SÚPER EVENTO CORPORATIVO!"
+            broadcast "{@prefix} &fLa empresa ganadora es: %{_emp_n}%"
+            broadcast "{@prefix} &e¡Tratos x2 en esa empresa y cobro de dividendos habilitado durante 4 días!"
+            broadcast " "
+
+    if {mercado::evento::activo} is set:
+        if unix timestamp of now >= {mercado::evento::unix_fin}:
+            clear {mercado::evento::activo}
+            clear {mercado::evento::empresa}
+            clear {mercado::evento::reclamado::*}
+            set {mercado::evento::unix_mes} to unix timestamp of now + 2592000
+            broadcast "{@prefix} &cEl Súper Evento Corporativo ha finalizado. Comienza nuevo ciclo de 30 días."
+
+    # Rotación automática de mercado básico cada 4 horas (14400s)
+    if {mercado::unix_rotacion} is not set:
+        set {mercado::unix_rotacion} to unix timestamp of now + 14400
+    else if unix timestamp of now >= {mercado::unix_rotacion}:
+        rotarMercadoTotal()
+        
+    # 2. Reinicio de Límite de Tratos Básicos cada 2 Horas (7200s)
+    if {mercado::unix_reset_usos} is not set:
+        set {mercado::unix_reset_usos} to unix timestamp of now + 7200
+    else if unix timestamp of now >= {mercado::unix_reset_usos}:
+        delete {mercado::usos::*}
+        set {mercado::unix_reset_usos} to unix timestamp of now + 7200
+
+    # 3. Reinicio de Tratos en Efectivo ($15k) cada 5 Horas (18000s)
+    if {mercado::unix_reset_cash} is not set:
+        set {mercado::unix_reset_cash} to unix timestamp of now + {@reset_cash_segundos}
+    else if unix timestamp of now >= {mercado::unix_reset_cash}:
+        delete {mercado::usos_cash::*}
+        set {mercado::unix_reset_cash} to unix timestamp of now + {@reset_cash_segundos}
+        broadcast "{@prefix} &a¡Se han renovado los cupos de tratos en efectivo ($15,000) en el /mercado!"
+
+    # 4. Limpieza Automática del Hype Falso
+    if {mercado::fake_traffic::unix_fin} is set:
+        if unix timestamp of now >= {mercado::fake_traffic::unix_fin}:
+            set {_t} to {mercado::fake_traffic::empresa}
+            clear {mercado::fake_traffic::unix_fin}
+            clear {mercado::fake_traffic::empresa}

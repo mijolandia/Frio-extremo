@@ -1,0 +1,19 @@
+# ============================================================ #
+#   SCRIPT DE SPAWN BÁSICO — NATURELAND                        #
+# ============================================================ #
+
+command /setspawn:
+    permission: op # O puedes poner "natureland.admin" si usas LuckPerms
+    permission message: &cNo tienes permiso para hacer esto.
+    trigger:
+        # Esto guarda la ubicación exacta (mundo, coordenadas y hacia dónde miras) en la memoria
+        set {natureland.spawn} to player's location
+        send "&8[&6&lNatureLand&8] &a¡El punto de aparición (Spawn) ha sido guardado correctamente!"
+
+command /spawn:
+    trigger:
+        if {natureland.spawn} is set:
+            send "&8[&6&lNatureLand&8] &7Teletransportándote al spawn..."
+            teleport player to {natureland.spawn}
+        else:
+            send "&8[&c&l!&8] &cEl spawn aún no ha sido configurado. Avisa a un administrador (/setspawn)."

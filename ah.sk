@@ -1,0 +1,510 @@
+# ==============================================================================
+#   🌿 NATURELAND | GLOBAL AUCTION HOUSE & CREDIT HEALTH v4.2 - FIXED
+#   Compatibilidad: Paper 1.21.11 | Skript 2.15.4 | SkBee 3.25.1
+# ==============================================================================
+
+options:
+    prefix: &8[&a&lSUBASTAS&8] &r
+    gui_main: &8[AH] 🌿 &a&lSUBASTAS &8| &7Mercado Libre
+    gui_mine: &8[AH] 📦 &e&lMIS SUBASTAS &8| &7Activas
+    gui_bank: &8[AH] 🌿 &a&lRECOLECCIÓN &8| &7Tu Banco
+    gui_admin: &8[AH] ⚙️ &c&lPANEL ADMIN AH &8| &7Control Financiero
+    
+    # Configuración de límites y economía
+    precio_minimo: 10
+    max_publicaciones_default: 5
+    max_publicaciones_vip: 10
+    duracion_disco_ward: 251 seconds # 4 min y 11 seg exactos del disco Ward
+
+# ------------------------------------------------------------------------------
+# 1. MOTOR DE CICLO ECONÓMICO Y CRASH FINANCIERO
+# ------------------------------------------------------------------------------
+on load:
+    if {ah::global::day} is not set:
+        set {ah::global::day} to 1
+    if {ah::global::crash_active} is not set:
+        set {ah::global::crash_active} to false
+    if {ah::sys::id_counter} is not set:
+        set {ah::sys::id_counter} to 1000
+
+# Amanecer en Minecraft (06:00 AM)
+at 06:00 in "world":
+    ah_avanzarDiaFinanciero()
+
+function ah_avanzarDiaFinanciero():
+    if {ah::global::crash_active} is true:
+        stop
+        
+    add 1 to {ah::global::day}
+    
+    if {ah::global::day} >= 25:
+        ah_detonarCrashFinanciero()
+    else:
+        set {_taxPct} to 2 + (({ah::global::day} - 1) * 2)
+    
+    broadcast "{@prefix}&e&lMERCADO GLOBAL: &7Amanece el &fDía %{ah::global::day}%/25&7. Tasa de publicación actual: &c%{_taxPct}%%%"
+
+function ah_getGlobalTaxRate() :: number:
+    if {ah::global::crash_active} is true:
+        return 1.0 # 100% de impuesto durante el crash
+    set {_day} to {ah::global::day} ? 1
+    set {_taxPct} to 2 + (({_day} - 1) * 2)
+    return {_taxPct} / 100
+
+function ah_detonarCrashFinanciero():
+    set {ah::global::crash_active} to true
+    set {ah::global::day} to 25
+    
+    loop all players:
+        play sound "music_disc.ward" with volume 100000 and pitch 1.0 to loop-player
+    
+    broadcast ""
+    broadcast "{@prefix}&c&l¡ALERTA MÁXIMA: CRASH FINANCIERO GLOBAL!"
+    broadcast "&7El impuesto de publicación ha alcanzado el &c&l100%%&7."
+    broadcast "&c&l[!] &fEl mercado de subastas ha quedado &c&lCONGELADO&f."
+    broadcast "&7No se podrán publicar objetos mientras suene la alarma de reestructuración."
+    broadcast ""
+    
+    wait {@duracion_disco_ward}
+    
+    ah_restablecerEconomiaNormal()
+
+function ah_restablecerEconomiaNormal():
+    set {ah::global::crash_active} to false
+    set {ah::global::day} to 1
+    
+    loop all players:
+        play sound "entity.player.levelup" with volume 1.0 and pitch 1.0 to loop-player
+    
+    broadcast ""
+    broadcast "{@prefix}&a&l¡REESTRUCTURACIÓN FINANCIERA COMPLETADA!"
+    broadcast "&7La alarma ha cesado. La Salud Crediticia ha vuelto al &a&l100%%&7."
+    broadcast "&7Comisión base de publicación restablecida al &a2%%&7. ¡El mercado está abierto!"
+    broadcast ""
+
+function ah_fillAHBorders(p: player, rows: number):
+    set {_totalSlots} to ({_rows} * 9) - 1
+    set {_pane} to gray stained glass pane named "&r"
+    
+    loop {_totalSlots} + 1 times:
+        set {_slot} to loop-number - 1
+        set {_border} to false
+        
+        if {_slot} < 9:
+            set {_border} to true
+        else if {_slot} >= ({_totalSlots} - 8):
+            set {_border} to true
+        else if mod({_slot}, 9) is 0:
+            set {_border} to true
+        else if mod(({_slot} + 1), 9) is 0:
+            set {_border} to true
+            
+        if {_border} is true:
+            set slot {_slot} of {_p}'s current inventory to {_pane}
+
+# ------------------------------------------------------------------------------
+# 2. COMANDOS PRINCIPALES (/AH)
+# ------------------------------------------------------------------------------
+command /ah [<text>] [<number>]:
+    aliases: /subastas, /subasta
+    trigger:
+        if arg-1 is not set:
+            ah_abrirAHMain(player)
+            stop
+            
+        if arg-1 is "admin" or "panel":
+            if player is op:
+                ah_abrirAHAdmin(player)
+            else:
+                send "{@prefix}&cNo tienes permisos de Administrador (OP) para usar este panel." to player
+            stop
+            
+        if arg-1 is "mis" or "activas":
+            ah_abrirAHMisSubastas(player)
+            stop
+            
+        if arg-1 is "banco" or "recolectar" or "claim":
+            ah_abrirAHBanco(player)
+            stop
+            
+        if arg-1 is "vender" or "sell":
+            if {ah::global::crash_active} is true:
+                play sound "entity.villager.no" to player
+                send "{@prefix}&c&l[MERCADO CONGELADO] &fEl impuesto está al &c100%% &fdebido a la Reestructuración Financiera. No puedes vender nada hasta que termine la alarma." to player
+                stop
+                
+            if arg-2 is not set:
+                send "{@prefix}&cUso correcto: &e/ah vender <precio>" to player
+                stop
+                
+            set {_precio} to arg-2
+            if {_precio} < {@precio_minimo}:
+                send "{@prefix}&cEl precio mínimo para subastar es &a${@precio_minimo}&c." to player
+                stop
+                
+            set {_item} to player's held item
+            if {_item} is air:
+                send "{@prefix}&cDebes tener un objeto en la mano para venderlo." to player
+                stop
+                
+            set {_max} to {@max_publicaciones_default}
+            if player has permission "pshop.vip":
+                set {_max} to {@max_publicaciones_vip}
+                
+            set {_activas} to 0
+            loop {ah::ids::*}:
+                set {_id} to loop-value
+                if {ah::listing::%{_id}%::seller_uuid} is player's uuid:
+                    add 1 to {_activas}
+                    
+            if {_activas} >= {_max}:
+                send "{@prefix}&cHas alcanzado tu límite de &e%{_max}% &cpublicaciones simultáneas." to player
+                stop
+                
+            set {_taxRate} to ah_getGlobalTaxRate()
+            set {_taxPct} to {_taxRate} * 100
+            set {_tax} to {_precio} * {_taxRate}
+            
+            if player's balance < {_tax}:
+                send "{@prefix}&cNecesitas &a$%{_tax}% &cpara pagar la tasa del día %{ah::global::day}% (&e%{_taxPct}%%%&c)." to player
+                stop
+                
+            remove {_tax} from player's balance
+            
+            add 1 to {ah::sys::id_counter}
+            set {_id} to {ah::sys::id_counter}
+            add {_id} to {ah::ids::*}
+            
+            set {ah::listing::%{_id}%::item} to {_item}
+            set {ah::listing::%{_id}%::price} to {_precio}
+            set {ah::listing::%{_id}%::seller_uuid} to player's uuid
+            set {ah::listing::%{_id}%::seller_name} to player's name
+            
+            set player's held item to air
+            play sound "entity.experience_orb.pickup" with volume 0.8 and pitch 1.2 to player
+            send "{@prefix}&a¡Objeto publicado por &e$%{_precio}% &a(Impuesto del día: &c$%{_tax}% &7[%{_taxPct}%%%]&a)!" to player
+            stop
+
+        send "{@prefix}&cUso correcto: &e/ah &co &e/ah vender <precio>" to player
+
+# ------------------------------------------------------------------------------
+# 3. INTERFACES GRÁFICAS (GUIs)
+# ------------------------------------------------------------------------------
+function ah_abrirAHMain(p: player):
+    open chest inventory with 6 rows named "{@gui_main}" to {_p}
+    set {_gui} to {_p}'s current inventory
+    ah_fillAHBorders({_p}, 6)
+    
+    set slot 2 of {_gui} to book named "&e&l📖 MANUAL Y REGLAS DE SUBASTAS" with lore "&7Información sobre el ciclo económico global." and "" and "&f• &e/ah vender <precio> &7- Vende tu ítem." and "&f• &fCiclo Global: &7Día %{ah::global::day}%/25" and "&f• &fLas comisiones suben &c+2%% cada día&f." and "&f• &fEn el Día 25 ocurre la &cReestructuración&f." and "" and "&e▶ Clic para leer las instrucciones en el chat"
+    
+    set {_day} to {ah::global::day} ? 1
+    set {_taxRate} to ah_getGlobalTaxRate()
+    set {_taxPct} to {_taxRate} * 100
+    set {_saludPct} to 102 - {_taxPct}
+    if {ah::global::crash_active} is true:
+        set {_saludPct} to 0
+        
+    set {_creditItem} to emerald block named "&a&l💎 SALUD CREDITICIA: &e%{_saludPct}%%%&a"
+    if {ah::global::crash_active} is true:
+        set {_creditItem} to netherite block named "&4&l☠ CRASH ACTIVO (IMPUESTO 100%%)"
+    else if {_day} >= 20:
+        set {_creditItem} to redstone block named "&c&l☠ CRASH INMINENTE: &e%{_saludPct}%%%&c"
+    else if {_day} >= 10:
+        set {_creditItem} to gold block named "&e&l⚠️ INFLACIÓN MEDIA: &e%{_saludPct}%%%&e"
+        
+    set slot 4 of {_gui} to {_creditItem} with lore "" and "&7Estado del Mercado Financiero:" and "&f• Día Actual: &e%{_day}% / 25 de Minecraft" and "&f• Impuesto Global: &c%{_taxPct}%%%" and "" and "&7[!] &fEl impuesto sube &c+2%% cada día&7." and "&7[!] &fAl terminar la alarma del Día 25, &areinicia al 100%%&7."
+    
+    set {_pending} to {ah::bank::money::%{_p}'s uuid%} ? 0
+    set slot 6 of {_gui} to chest named "&e&lTU BANCO Y RECOLECCIÓN" with lore "" and "&7Dinero pendiente: &a$%{_pending}%" and "" and "&e▶ Clic para reclamar ganancias"
+    
+    set slot 49 of {_gui} to ender chest named "&6&l📦 MIS SUBASTAS ACTIVAS" with lore "&7Revisa tus ítems en venta" and "&7y retíralos si lo deseas." and "" and "&e▶ Clic para gestionar tus subastas"
+    
+    set {_slot} to 10
+    loop {ah::ids::*}:
+        set {_id} to loop-value
+        set {_item} to {ah::listing::%{_id}%::item}
+        set {_price} to {ah::listing::%{_id}%::price}
+        set {_seller_name} to {ah::listing::%{_id}%::seller_name}
+        set {_seller_uuid} to {ah::listing::%{_id}%::seller_uuid}
+        
+        set {_display} to {_item}
+        set {_lore::*} to lore of {_display}
+        add "" to {_lore::*}
+        add "&8-----------------------" to {_lore::*}
+        add "&7Vendedor: &f%{_seller_name}%" to {_lore::*}
+        add "&7Precio: &a$%{_price}%" to {_lore::*}
+        add "&7ID: &8#%{_id}%" to {_lore::*}
+        add "" to {_lore::*}
+        
+        if {_seller_uuid} is {_p}'s uuid:
+            add "&c▶ Clic para cancelar tu publicación" to {_lore::*}
+        else:
+            add "&e▶ Clic para comprar objeto" to {_lore::*}
+            
+        set lore of {_display} to {_lore::*}
+        set slot {_slot} of {_gui} to {_display}
+        
+        add 1 to {_slot}
+        if mod(({_slot} + 1), 9) is 0:
+            add 2 to {_slot}
+        if {_slot} > 43:
+            exit loop
+            
+    play sound "block.chest.open" with volume 0.8 to {_p}
+
+function ah_abrirAHMisSubastas(p: player):
+    open chest inventory with 4 rows named "{@gui_mine}" to {_p}
+    set {_gui} to {_p}'s current inventory
+    ah_fillAHBorders({_p}, 4)
+    
+    set slot 31 of {_gui} to arrow named "&c&l← VOLVER AL MERCADO" with lore "" and "&7Regresar a todas las subastas."
+    set {_slot} to 10
+    loop {ah::ids::*}:
+        set {_id} to loop-value
+        if {ah::listing::%{_id}%::seller_uuid} is {_p}'s uuid:
+            set {_item} to {ah::listing::%{_id}%::item}
+            set {_price} to {ah::listing::%{_id}%::price}
+            
+            set {_display} to {_item}
+            set {_lore::*} to lore of {_display}
+            add "" to {_lore::*}
+            add "&8-----------------------" to {_lore::*}
+            add "&7Precio de venta: &a$%{_price}%" to {_lore::*}
+            add "&7ID: &8#%{_id}%" to {_lore::*}
+            add "" to {_lore::*}
+            add "&c▶ Clic para retirar ítem a tu inventario" to {_lore::*}
+            
+            set lore of {_display} to {_lore::*}
+            set slot {_slot} of {_gui} to {_display}
+            
+            add 1 to {_slot}
+            if mod(({_slot} + 1), 9) is 0:
+                add 2 to {_slot}
+    play sound "block.ender_chest.open" to {_p}
+
+function ah_abrirAHBanco(p: player):
+    open chest inventory with 3 rows named "{@gui_bank}" to {_p}
+    set {_gui} to {_p}'s current inventory
+    ah_fillAHBorders({_p}, 3)
+    
+    set {_money} to {ah::bank::money::%{_p}'s uuid%} ? 0
+    
+    set slot 11 of {_gui} to gold ingot named "&a&lRETIRAR GANANCIAS" with lore "" and "&7Dinero acumulado: &a$%{_money}%" and "" and "&e▶ Clic para transferir a tu saldo"
+    set slot 15 of {_gui} to arrow named "&c&lVOLVER A SUBASTAS" with lore "" and "&7Regresar al menú principal."
+    play sound "block.note_block.pling" to {_p}
+
+function ah_abrirAHAdmin(p: player):
+    open chest inventory with 3 rows named "{@gui_admin}" to {_p}
+    set {_gui} to {_p}'s current inventory
+    ah_fillAHBorders({_p}, 3)
+    
+    set {_day} to {ah::global::day} ? 1
+    set {_taxRate} to ah_getGlobalTaxRate()
+    set {_taxPct} to {_taxRate} * 100
+    
+    set slot 10 of {_gui} to clock named "&e&lAvanzar +1 Día Financiero" with lore "" and "&7Día Actual: &f%{_day}% / 25" and "&7Tasa Actual: &c%{_taxPct}%%%" and "" and "&e▶ Clic para sumar 1 día al mercado"
+    set slot 12 of {_gui} to redstone block named "&c&lFingir Compras Rápidas (Día 24)" with lore "" and "&7Fija el mercado en el &cDía 24 / 25&7." and "&7(Salud Crediticia cae al &c5%%&7)" and "" and "&e▶ Clic para forzar caída de crédito"
+    set slot 14 of {_gui} to music disc ward named "&4&lDETONAR CRASH (Impuesto 100%% + Alarma)" with lore "" and "&7Activa el crash del &cDía 25&7." and "&7Suena el disco Ward en todos los mundos" and "&7y congela ventas por 4 min 11 seg." and "" and "&e▶ Clic para activar Crash ahora"
+    set slot 16 of {_gui} to emerald block named "&a&lRestablecer Economía (Día 1 / 100%% Credit)" with lore "" and "&7Detiene la alarma al instante y" and "&7restaura comisión al &a2%% &7(Día 1)." and "" and "&e▶ Clic para restablecer normalidad"
+    set slot 22 of {_gui} to arrow named "&c&lVOLVER AL AH" with lore "" and "&7Regresar a la vista principal."
+    play sound "block.comparator.click" to {_p}
+
+# ------------------------------------------------------------------------------
+# 4. EVENTOS DE INTERACCIÓN (SISTEMA DE SEGURIDAD CONTRA OTROS SKRIPTS)
+# ------------------------------------------------------------------------------
+on inventory click:
+    set {_title} to name of player's current inventory
+    
+    # Si el menú no pertenece al sistema de Subastas [AH], ignoramos el evento
+    if {_title} does not contain "[AH]":
+        stop
+        
+    # --------------------------------------------------------------------------
+    # A) MENÚ MIS SUBASTAS
+    # --------------------------------------------------------------------------
+    if {_title} contains "MIS SUBASTAS":
+        cancel event
+        if event-inventory is player's inventory:
+            stop
+            
+        # Botón Volver
+        if index of event-slot is 31:
+            ah_abrirAHMain(player)
+            stop
+            
+        # Retirar ítem
+        if type of event-slot is not air or gray stained glass pane:
+            set {_lore::*} to lore of event-slot
+            loop {_lore::*}:
+                set {_linea} to uncolored loop-value
+                if {_linea} contains "ID: #":
+                    replace all "ID: #" in {_linea} with ""
+                    replace all " " in {_linea} with ""
+                    set {_id} to {_linea} parsed as integer
+                    
+            if {_id} is set:
+                if {ah::listing::%{_id}%::seller_uuid} is player's uuid:
+                    set {_item} to {ah::listing::%{_id}%::item}
+                    remove {_id} from {ah::ids::*}
+                    delete {ah::listing::%{_id}%::*}
+                    
+                    give {_item} to player
+                    play sound "entity.item.pickup" to player
+                    send "{@prefix}&aHas retirado tu objeto de la venta y regresó a tu inventario." to player
+                    ah_abrirAHMisSubastas(player)
+                    stop
+        stop
+
+    # --------------------------------------------------------------------------
+    # B) MENÚ PRINCIPAL DEL MERCADO
+    # --------------------------------------------------------------------------
+    else if {_title} contains "Mercado Libre":
+        cancel event
+        if event-inventory is player's inventory:
+            stop
+            
+        set {_slot} to index of event-slot
+        
+        if {_slot} is 2:
+            play sound "item.book.page_turn" to player
+            send "&8&m--------------------------------------------------" to player
+            send "&e&l📖 MANUAL DE MERCADO GLOBAL - NATURELAND" to player
+            send "&f1. Vender un ítem: &e/ah vender <precio>" to player
+            send "&f2. Comisión sube cada amanecer de Minecraft (+2%% por día)." to player
+            send "&f3. &aDía 1: &f2%% comisión | &cDía 24: &f48%% comisión." to player
+            send "&f4. &4Día 25 (Crash): &fImpuesto al 100%%. Suena alarma Ward en todos los mundos y se congela el mercado." to player
+            send "&f5. Al terminar la música, todo se restablece al 100%% de salud." to player
+            send "&f6. Retira el dinero de tus ventas en &e/ah banco&f." to player
+            send "&8&m--------------------------------------------------" to player
+            stop
+            
+        if {_slot} is 4:
+            if player is op:
+                ah_abrirAHAdmin(player)
+            stop
+            
+        if {_slot} is 6:
+            ah_abrirAHBanco(player)
+            stop
+            
+        if {_slot} is 49:
+            ah_abrirAHMisSubastas(player)
+            stop
+            
+        if type of event-slot is not air or gray stained glass pane:
+            set {_lore::*} to lore of event-slot
+            loop {_lore::*}:
+                set {_linea} to uncolored loop-value
+                if {_linea} contains "ID: #":
+                    replace all "ID: #" in {_linea} with ""
+                    replace all " " in {_linea} with ""
+                    set {_id} to {_linea} parsed as integer
+                    
+            if {_id} is set:
+                set {_seller_uuid} to {ah::listing::%{_id}%::seller_uuid}
+                set {_price} to {ah::listing::%{_id}%::price}
+                set {_item} to {ah::listing::%{_id}%::item}
+                
+                # Caso 1: Cancelar propia subasta
+                if {_seller_uuid} is player's uuid:
+                    remove {_id} from {ah::ids::*}
+                    delete {ah::listing::%{_id}%::*}
+                    give {_item} to player
+                    play sound "entity.item.pickup" to player
+                    send "{@prefix}&aHas cancelado tu publicación y recuperado tu objeto." to player
+                    ah_abrirAHMain(player)
+                    stop
+                    
+                # Caso 2: Comprar ítem de otro jugador
+                if player's balance < {_price}:
+                    play sound "entity.villager.no" to player
+                    send "{@prefix}&cNo tienes suficiente dinero. Cuesta &a$%{_price}%&c." to player
+                    stop
+                    
+                if player doesn't have enough space for {_item}:
+                    play sound "entity.villager.no" to player
+                    send "{@prefix}&cTu inventario está lleno." to player
+                    stop
+                    
+                remove {_price} from player's balance
+                add {_price} to {ah::bank::money::%{_seller_uuid}%}
+                give {_item} to player
+                
+                remove {_id} from {ah::ids::*}
+                delete {ah::listing::%{_id}%::*}
+                
+                play sound "entity.player.levelup" with volume 0.8 to player
+                send "{@prefix}&a¡Has comprado el objeto por &e$%{_price}%&a!" to player
+                
+                set {_seller_offline} to {_seller_uuid} parsed as offline player
+                if {_seller_offline} is online:
+                    send "{@prefix}&a¡Alguien compró tu objeto! Tienes &e$%{_price}% &amás en tu banco (&e/ah banco&a)." to {_seller_offline}
+                    
+                ah_abrirAHMain(player)
+                stop
+
+    # --------------------------------------------------------------------------
+    # C) MENÚ BANCO
+    # --------------------------------------------------------------------------
+    else if {_title} contains "RECOLECCIÓN":
+        cancel event
+        if event-inventory is player's inventory:
+            stop
+            
+        set {_slot} to index of event-slot
+        if {_slot} is 11:
+            set {_money} to {ah::bank::money::%player's uuid%} ? 0
+            if {_money} <= 0:
+                play sound "entity.villager.no" to player
+                send "{@prefix}&cNo tienes ganancias pendientes por retirar." to player
+                stop
+                
+            add {_money} to player's balance
+            delete {ah::bank::money::%player's uuid%}
+            play sound "entity.experience_orb.pickup" to player
+            send "{@prefix}&aHas retirado &e$%{_money}% &aa tu saldo principal." to player
+            ah_abrirAHBanco(player)
+            stop
+            
+        if {_slot} is 15:
+            ah_abrirAHMain(player)
+            stop
+
+    # --------------------------------------------------------------------------
+    # D) MENÚ PANEL ADMIN (OP ONLY)
+    # --------------------------------------------------------------------------
+    else if {_title} contains "PANEL ADMIN AH":
+        cancel event
+        if player is not op:
+            close player's inventory
+            stop
+            
+        if event-inventory is player's inventory:
+            stop
+            
+        set {_slot} to index of event-slot
+        
+        if {_slot} is 10:
+            ah_avanzarDiaFinanciero()
+            play sound "block.note_block.pling" to player
+            ah_abrirAHAdmin(player)
+            send "{@prefix}&aHas avanzado 1 día financiero. Día actual: &e%{ah::global::day}%/25" to player
+            
+        else if {_slot} is 12:
+            set {ah::global::crash_active} to false
+            set {ah::global::day} to 24
+            set {_taxPct} to 2 + ((24 - 1) * 2)
+            play sound "entity.zombie.break_wooden_door" to player
+            broadcast "{@prefix}&c&l⚠️ ALERTA ECONÓMICA: &7Debido a una ola masiva de compras rápidas, la Salud Crediticia global ha caído al &c5%% &7(Tasa: &c%{_taxPct}%%%&7)."
+            ah_abrirAHAdmin(player)
+            
+        else if {_slot} is 14:
+            close player's inventory
+            ah_detonarCrashFinanciero()
+            
+        else if {_slot} is 16:
+            ah_restablecerEconomiaNormal()
+            ah_abrirAHAdmin(player)
+            
+        else if {_slot} is 22:
+            ah_abrirAHMain(player)

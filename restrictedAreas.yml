@@ -1,0 +1,40 @@
+# Restricted area configuration
+#
+# Configures restricted areas where you cannot get experience or money
+# when performing a job.
+#
+# The multiplier changes the experience/money gains in an area.
+# A multiplier of 0.0 means no bonus, while 0.5 means you will get 50% more the normal income
+# While -0.5 means that you will get 50% less the normal income
+#
+# jobs section defines list of jobs this area should apply to
+# Define it as [jobName/all]-[fromLevel]-[untilLevel] for example miner-5-10 would mean that this area applies for miners between level 5 and 10
+# Level limits are optional and if not defined we will apply to all levels
+# You can define for all jobs at same time with defined level limit like all-25-69 which would apply for all jobs between level 25 and 69
+
+restrictedareas:
+  # Ejemplo 1: Zona del Spawn (Bloquea ganancias para evitar farmeo en zona segura)
+  ZonaSpawn:
+    enabled: false # Cambia a 'true' para activar
+    multipliers:
+      Money: -1.0 # Sin dinero (-100%)
+      Exp: -1.0 # Sin XP (-100%)
+      Points: -1.0 # Sin puntos (-100%)
+    world: world
+    point1: -100;0;-100
+    point2: 100;255;100
+    jobs:
+    - all-0-200
+  
+  # Ejemplo 2: Zona Nether Peligrosa (Otorga 50% extra por el riesgo)
+  BonusNether:
+    enabled: false # Cambia a 'true' para activar
+    multipliers:
+      Money: 0.5 # +50% dinero
+      Exp: 0.5 # +50% experiencia
+      Points: 0.2 # +20% puntos
+    world: world_nether
+    point1: -500;0;-500
+    point2: 500;128;500
+    jobs:
+    - all-0-200

@@ -1,0 +1,932 @@
+# ==============================================================================
+#  🌿 NATURELAND | MERCADO SURVIVAL DINÁMICO (PAPER 1.21+ / SKRIPT 2.15.4)
+# ==============================================================================
+
+options:
+    prefix: &8[&a&lNATURE&e&lLAND&8] &r
+    
+    # --- TÍTULOS DE INTERFAZ ---
+    title_main: &8🌿 &a&lNATURE&e&lLAND &8| &7Mercado
+    title_cat1: &8🌿 &a&lMERCADO &8| &eSuministros
+    title_cat2: &8🌿 &a&lMERCADO &8| &bUtilidades
+    title_cat3: &8🌿 &a&lMERCADO &8| &dEncantos
+    title_cat4: &8🌿 &a&lMERCADO &8| &cNether y Alquimia
+    title_cat5: &8🌿 &a&lMERCADO &8| &5Dimensión End
+    title_confirm: &8🌿 &a&lTRANSACCIÓN &8| &0&lCANTIDAD
+    title_profile: &8🌿 &a&lMERCADO &8| &eEstadísticas
+
+    # --- SONIDOS ---
+    sound_success: entity.player.levelup
+    sound_error: block.note_block.bass
+    sound_click: ui.button.click
+    sound_open: block.chest.open
+
+# ==============================================================================
+# 1. LIMPIEZA DE VARIABLES TEMPORALES EN MEMORIA
+# ==============================================================================
+on unload:
+    delete {-shop_cooldown::*}
+    delete {-mshop::*}
+
+# ==============================================================================
+# 2. CICLO ECONÓMICO: REINICIO Y TOP 3 GASTADORES (CADA 5 HORAS)
+# ==============================================================================
+every 5 hours:
+    broadcast ""
+    broadcast "{@prefix}&e&l🏆 TOP 3 GASTADORES DEL MERCADO NATURELAND 🏆"
+    broadcast "&7(Ciclo de las últimas 5 horas)"
+    broadcast ""
+    
+    set {_count} to 1
+    loop {market_spent::*}:
+        set {_high_spent::%loop-index%} to loop-value
+        
+    loop 3 times:
+        set {_max} to 0
+        set {_top_player} to "Nadie"
+        loop {_high_spent::*}:
+            if loop-value-2 > {_max}:
+                set {_max} to loop-value-2
+                set {_top_player} to loop-index
+        if {_max} > 0:
+            broadcast "&6&l#%{_count}% &f%{_top_player}% &7- Gastó: &a$%cleanMoney({_max})%"
+            delete {_high_spent::%{_top_player}%}
+            add 1 to {_count}
+        else if {_count} is 1:
+            broadcast "&7¡Nadie ha gastado dinero en este ciclo aún!"
+            exit loop
+            
+    broadcast ""
+    broadcast "{@prefix}&a&l¡EL MERCADO SE HA REINICIADO!"
+    broadcast "&7Todos los precios de oferta y demanda han vuelto a su valor normal."
+    broadcast ""
+    
+    delete {market_spent::*}
+    delete {market_demand::*}
+
+# ==============================================================================
+# 3. FUNCIONES DE ECONOMÍA Y FORMATO
+# ==============================================================================
+function cleanMoney(n: number) returns text:
+    return "%{_n}%"
+
+function getDynamicPrice(base: number, id: text, type: text) returns number:
+    if {market_demand::%{_id}%} is not set:
+        set {market_demand::%{_id}%} to 0
+        
+    set {_multiplier} to 1 + ({market_demand::%{_id}%} * 0.02)
+    
+    if {_multiplier} > 2.0:
+        set {_multiplier} to 2.0
+    else if {_multiplier} < 0.5:
+        set {_multiplier} to 0.5
+        
+    set {_finalPrice} to {_base} * {_multiplier}
+    
+    if {_type} is "sell":
+        set {_finalPrice} to {_finalPrice} * 0.40
+        
+    return {_finalPrice}
+
+# --- DEGRADADO VISUAL DE BORDES NATURELAND ---
+function fillShopBorders(p: player, rows: number):
+    set {_totalSlots} to ({_rows} * 9) - 1
+    
+    set {_panes::1} to lime stained glass pane named "&r"
+    set {_panes::2} to green stained glass pane named "&r"
+    set {_panes::3} to yellow stained glass pane named "&r"
+    set {_panes::4} to orange stained glass pane named "&r"
+    
+    set {_color_idx} to 1
+    loop {_totalSlots} + 1 times:
+        set {_slot} to loop-number - 1
+        set {_is_border} to false
+        
+        if {_slot} < 9:
+            set {_is_border} to true
+        else if {_slot} >= ({_totalSlots} - 8):
+            set {_is_border} to true
+        else if mod({_slot}, 9) is 0:
+            set {_is_border} to true
+        else if mod(({_slot} + 1), 9) is 0:
+            set {_is_border} to true
+            
+        if {_is_border} is true:
+            set slot {_slot} of {_p}'s current inventory to {_panes::%{_color_idx}%}
+            add 1 to {_color_idx}
+            if {_color_idx} > 4:
+                set {_color_idx} to 1
+
+function setShopItem(p: player, slot: number, base: number, id: text, item: item, name: text):
+    set {_pBuy} to getDynamicPrice({_base}, {_id}, "buy")
+    set {_pSell} to getDynamicPrice({_base}, {_id}, "sell")
+    set slot {_slot} of {_p}'s current inventory to {_item} named "%{_name}%" with lore "&aCompra: &f$%cleanMoney({_pBuy})%", "&cVenta: &f$%cleanMoney({_pSell})%", "" and "&e▶ Clic para elegir cantidad / comprar"
+
+# ==============================================================================
+# 4. SISTEMA DE CONFIRMACIÓN Y SELECCIÓN DE CANTIDAD INTELIGENTE
+# ==============================================================================
+function abrirMenuConfirmacionMercado(p: player, basePrice: number, baseItem: item, label: text, id: text, parent_gui: text):
+    set {_uuid} to uuid of {_p}
+    set {-mshop::%{_uuid}%::price} to {_basePrice}
+    set {-mshop::%{_uuid}%::item} to {_baseItem}
+    set {-mshop::%{_uuid}%::label} to {_label}
+    set {-mshop::%{_uuid}%::id} to {_id}
+    set {-mshop::%{_uuid}%::parent} to {_parent_gui}
+    
+    set {_base_amt} to item amount of {_baseItem}
+    if {_base_amt} < 1:
+        set {_base_amt} to 1
+        
+    set {_unit_price} to {_basePrice} / {_base_amt}
+    set {-mshop::%{_uuid}%::unit_price} to {_unit_price}
+    
+    # Elección lógica de botones según la cantidad base en tienda:
+    if {_base_amt} >= 16:
+        set {_q1} to 16
+        set {_q2} to 32
+        set {_q3} to 64
+    else if {_base_amt} >= 8:
+        set {_q1} to 8
+        set {_q2} to 32
+        set {_q3} to 64
+    else if {_base_amt} >= 4:
+        set {_q1} to 4
+        set {_q2} to 16
+        set {_q3} to 64
+    else if {_base_amt} >= 2:
+        set {_q1} to 2
+        set {_q2} to 16
+        set {_q3} to 64
+    else:
+        set {_q1} to 1
+        set {_q2} to 16
+        set {_q3} to 64
+        
+    set {-mshop::%{_uuid}%::q1} to {_q1}
+    set {-mshop::%{_uuid}%::q2} to {_q2}
+    set {-mshop::%{_uuid}%::q3} to {_q3}
+    
+    set {_gui} to a new chest inventory with 3 rows named "{@title_confirm}"
+    open {_gui} to {_p}
+    actualizarConfirmacionGUI({_p})
+
+function actualizarConfirmacionGUI(p: player):
+    set {_uuid} to uuid of {_p}
+    set {_basePrice} to {-mshop::%{_uuid}%::price}
+    set {_baseItem} to {-mshop::%{_uuid}%::item}
+    set {_label} to {-mshop::%{_uuid}%::label}
+    set {_id} to {-mshop::%{_uuid}%::id}
+    set {_unit_price} to {-mshop::%{_uuid}%::unit_price}
+    set {_q1} to {-mshop::%{_uuid}%::q1}
+    set {_q2} to {-mshop::%{_uuid}%::q2}
+    set {_q3} to {-mshop::%{_uuid}%::q3}
+    
+    if {_basePrice} is not set:
+        stop
+        
+    loop integers between 0 and 26:
+        set slot loop-value of {_p}'s current inventory to black stained glass pane named " "
+        
+    set {_unit_buy} to getDynamicPrice({_unit_price}, {_id}, "buy")
+    set {_unit_sell} to getDynamicPrice({_unit_price}, {_id}, "sell")
+    
+    set {_cost_buy1} to {_unit_buy} * {_q1}
+    set {_cost_buy2} to {_unit_buy} * {_q2}
+    set {_cost_buy3} to {_unit_buy} * {_q3}
+    
+    set {_cost_sell1} to {_unit_sell} * {_q1}
+    set {_cost_sell2} to {_unit_sell} * {_q2}
+    set {_cost_sell3} to {_unit_sell} * {_q3}
+    
+    set {_item_type} to type of {_baseItem}
+    set {_has_qty} to number of {_item_type} in {_p}'s inventory
+    
+    # Previsualización Central
+    set slot 13 of {_p}'s current inventory to {_baseItem} named "%{_label}%" with lore "", "&7Precio Unitario Compra: &a$%cleanMoney({_unit_buy})%", "&7Precio Unitario Venta: &c$%cleanMoney({_unit_sell})%", "", "&7Tu Saldo: &a$%cleanMoney({_p}'s balance)%", "&7En tu inventario: &f%{_has_qty}% objetos", "" and "&eSelecciona una opción a los lados"
+    
+    # Botones de Compra (Izquierda)
+    set slot 10 of {_p}'s current inventory to lime stained glass pane named "&a&lCOMPRAR x%{_q1}%" with lore "", "&7Unidades: &f%{_q1}% objetos", "&7Precio Total: &a$%cleanMoney({_cost_buy1})%", "" and "&e▶ Clic para confirmar compra"
+    set slot 11 of {_p}'s current inventory to lime stained glass pane named "&a&lCOMPRAR x%{_q2}%" with lore "", "&7Unidades: &f%{_q2}% objetos", "&7Precio Total: &a$%cleanMoney({_cost_buy2})%", "" and "&e▶ Clic para confirmar compra"
+    set slot 12 of {_p}'s current inventory to lime stained glass pane named "&a&lCOMPRAR x%{_q3}% &7(MAX/STACK)" with lore "", "&7Unidades: &f%{_q3}% objetos (1 Stack)", "&7Precio Total: &a$%cleanMoney({_cost_buy3})%", "" and "&e▶ Clic para comprar stack completo"
+    
+    # Botones de Venta (Derecha)
+    set slot 14 of {_p}'s current inventory to red stained glass pane named "&c&lVENDER x%{_q1}%" with lore "", "&7Unidades: &f%{_q1}% objetos", "&7Ganancia Total: &a$%cleanMoney({_cost_sell1})%", "" and "&6▶ Clic para confirmar venta"
+    set slot 15 of {_p}'s current inventory to red stained glass pane named "&c&lVENDER x%{_q2}%" with lore "", "&7Unidades: &f%{_q2}% objetos", "&7Ganancia Total: &a$%cleanMoney({_cost_sell2})%", "" and "&6▶ Clic para confirmar venta"
+    set slot 16 of {_p}'s current inventory to red stained glass pane named "&c&lVENDER x%{_q3}% &7(MAX/STACK)" with lore "", "&7Unidades: &f%{_q3}% objetos (1 Stack)", "&7Ganancia Total: &a$%cleanMoney({_cost_sell3})%", "" and "&6▶ Clic para vender stack completo"
+    
+    # Botón Volver
+    set slot 22 of {_p}'s current inventory to barrier named "&c&l✖ VOLVER ATRÁS" with lore "" and "&7Clic para regresar a la categoría."
+
+function procesarCompraMercado(p: player, quantity: number):
+    set {_uuid} to uuid of {_p}
+    set {_unit_price} to {-mshop::%{_uuid}%::unit_price}
+    set {_baseItem} to {-mshop::%{_uuid}%::item}
+    set {_label} to {-mshop::%{_uuid}%::label}
+    set {_id} to {-mshop::%{_uuid}%::id}
+    
+    if {_unit_price} is not set:
+        stop
+        
+    set {_unitCost} to getDynamicPrice({_unit_price}, {_id}, "buy")
+    set {_totalCost} to {_unitCost} * {_quantity}
+    set {_item_type} to type of {_baseItem}
+    
+    if {_p}'s balance < {_totalCost}:
+        set {_missing} to {_totalCost} - {_p}'s balance
+        send "{@prefix}&cFondos insuficientes. Te faltan &e$%cleanMoney({_missing})%&c." to {_p}
+        play sound "{@sound_error}" with volume 0.8 and pitch 0.6 to {_p}
+        stop
+        
+    if {_p} can't hold {_quantity} of {_item_type}:
+        send "{@prefix}&cNo tienes espacio suficiente en tu inventario para &f%{_quantity}% &cobjetos." to {_p}
+        play sound "{@sound_error}" with volume 0.8 and pitch 0.8 to {_p}
+        stop
+        
+    remove {_totalCost} from {_p}'s balance
+    
+    set {_give_item} to {_baseItem}
+    set item amount of {_give_item} to {_quantity}
+    give {_give_item} to {_p}
+        
+    add 1 to {market_demand::%{_id}%}
+    add {_totalCost} to {market_spent::%name of {_p}%}
+    add {_totalCost} to {total_spent::%uuid of {_p}%}
+    
+    send "{@prefix}&aHas comprado &f%{_label}% &7(x%{_quantity}%) &apor &e$%cleanMoney({_totalCost})%&a." to {_p}
+    play sound "{@sound_success}" with volume 0.6 and pitch 1.2 to {_p}
+    actualizarConfirmacionGUI({_p})
+
+function procesarVentaMercado(p: player, quantity: number):
+    set {_uuid} to uuid of {_p}
+    set {_unit_price} to {-mshop::%{_uuid}%::unit_price}
+    set {_baseItem} to {-mshop::%{_uuid}%::item}
+    set {_label} to {-mshop::%{_uuid}%::label}
+    set {_id} to {-mshop::%{_uuid}%::id}
+    
+    if {_unit_price} is not set:
+        stop
+        
+    set {_unitEarnings} to getDynamicPrice({_unit_price}, {_id}, "sell")
+    set {_totalEarnings} to {_unitEarnings} * {_quantity}
+    set {_item_type} to type of {_baseItem}
+    
+    set {_has_amount} to number of {_item_type} in {_p}'s inventory
+    if {_has_amount} < {_quantity}:
+        send "{@prefix}&cNo tienes suficientes objetos en tu inventario. Necesitas &f%{_quantity}% &cy tienes &f%{_has_amount}%&c." to {_p}
+        play sound "{@sound_error}" with volume 0.8 and pitch 0.6 to {_p}
+        stop
+        
+    set {_remove_item} to {_baseItem}
+    set item amount of {_remove_item} to {_quantity}
+    remove {_remove_item} from {_p}'s inventory
+        
+    add {_totalEarnings} to {_p}'s balance
+    remove 1 from {market_demand::%{_id}%}
+    
+    send "{@prefix}&aVendiste &f%{_label}% &7(x%{_quantity}%) &apor &e$%cleanMoney({_totalEarnings})%&a." to {_p}
+    play sound "entity.experience_orb.pickup" with volume 0.7 and pitch 1.1 to {_p}
+    actualizarConfirmacionGUI({_p})
+
+# ==============================================================================
+# 5. MENÚ PRINCIPAL Y CATEGORÍAS
+# ==============================================================================
+function renderMainGUI(p: player):
+    if {total_spent::%uuid of {_p}%} is not set:
+        set {total_spent::%uuid of {_p}%} to 0
+
+    set {_head} to skull of {_p}
+    set slot 4 of {_p}'s current inventory to {_head} named "&6&lTU CUENTA NATURELAND" with lore "", "&7Jugador: &f%{_p}'s name%", "&7Saldo Actual: &a$%cleanMoney({_p}'s balance)%", "&7Total Gastado: &e$%cleanMoney({total_spent::%uuid of {_p}%})%", "", "&e&lMECÁNICA ECONÓMICA:", "&7• Precios suben al comprar (Demanda)", "&7• Precios bajan al vender (Oferta)" and "&7• Clic en ítem: Abrir menú de cantidad (hasta 64)"
+    
+    set slot 19 of {_p}'s current inventory to bread named "&e&l1. SUMINISTROS Y COMIDA" with lore "", "&7Alimentos cocinados, cultivos básicos,", "&7maderas primarias y herramientas sencillas." and "&a&l▶ CLIC PARA EXPLORAR"
+    set slot 20 of {_p}'s current inventory to beacon named "&b&l2. UTILIDADES Y BLOQUES" with lore "", "&7Herramientas de expedición, redstone básico,", "&7almacenamiento, hornos y artículos de utilidad." and "&a&l▶ CLIC PARA EXPLORAR"
+    set slot 21 of {_p}'s current inventory to enchanted book named "&d&l3. LIBROS ENCANTADOS" with lore "", "&7Libros encantados individuales de nivel", "&7equilibrado para herramientas y armaduras." and "&a&l▶ CLIC PARA EXPLORAR"
+    set slot 22 of {_p}'s current inventory to netherrack named "&c&l4. NETHER Y ALQUIMIA" with lore "", "&7Bloques, plantillas, oro, escombros, reactivos", "&epara faros, cristales y pociones preparadas." and "&a&l▶ CLIC PARA EXPLORAR"
+    set slot 23 of {_p}'s current inventory to end stone named "&5&l5. DIMENSIÓN DEL END" with lore "", "&7Materiales raros del End, shulkers, elytras", "&7y objetos de muy alto valor económico." and "&a&l▶ CLIC PARA EXPLORAR"
+    set slot 25 of {_p}'s current inventory to coal ore named "&6&lTIENDA DE PROTECCIONES" with lore "", "&7Abre directamente el menú de piedras", "&7de protección para asegurar terrenos." and "&a&l▶ CLIC PARA ENTRAR A /PSHOP"
+    set slot 40 of {_p}'s current inventory to nether star named "&e&l⭐ MI PERFIL Y ESTADÍSTICAS ⭐" with lore "", "&7Consulta tus datos personales, rango comercial,", "&7y el líder del Top Gastadores en vivo." and "&a&l▶ CLIC PARA VER TUS STATS (/perfil)"
+
+function renderCat1GUI(p: player):
+    setShopItem({_p}, 10, 6.00, "bread", 8 of bread, "&fPan Reforzado &7(x8)")
+    setShopItem({_p}, 11, 10.00, "cooked_beef", 8 of cooked beef, "&fFilete Cocido &7(x8)")
+    setShopItem({_p}, 12, 10.00, "cooked_porkchop", 8 of cooked porkchop, "&fChuleta Cocida &7(x8)")
+    setShopItem({_p}, 13, 35.00, "golden_apple", 1 of golden apple, "&fManzana de Oro &7(x1)")
+    setShopItem({_p}, 14, 8.00, "carrot", 16 of carrot, "&fZanahoria Fresca &7(x16)")
+    setShopItem({_p}, 15, 9.00, "baked_potato", 16 of baked potato, "&fPapa Cocinada &7(x16)")
+    setShopItem({_p}, 16, 12.00, "pumpkin_pie", 4 of pumpkin pie, "&fPastel de Calabaza &7(x4)")
+    
+    setShopItem({_p}, 19, 8.00, "oak_log", 16 of oak log, "&fTronco de Roble &7(x16)")
+    setShopItem({_p}, 20, 8.00, "spruce_log", 16 of spruce log, "&fTronco de Abeto &7(x16)")
+    setShopItem({_p}, 21, 8.00, "birch_log", 16 of birch log, "&fTronco de Abedul &7(x16)")
+    setShopItem({_p}, 22, 10.00, "jungle_log", 16 of jungle log, "&fTronco de Jungla &7(x16)")
+    setShopItem({_p}, 23, 8.00, "acacia_log", 16 of acacia log, "&fTronco de Acacia &7(x16)")
+    setShopItem({_p}, 24, 9.00, "dark_oak_log", 16 of dark oak log, "&fTronco de Roble Oscuro &7(x16)")
+    setShopItem({_p}, 25, 11.00, "cherry_log", 16 of cherry log, "&fTronco de Cerezo &7(x16)")
+    
+    setShopItem({_p}, 28, 6.00, "cobblestone", 64 of cobblestone, "&fAdoquín &7(x64)")
+    setShopItem({_p}, 29, 10.00, "stone", 64 of stone, "&fPiedra Lisa &7(x64)")
+    setShopItem({_p}, 30, 8.00, "torch", 32 of torch, "&fAntorcha &7(x32)")
+    setShopItem({_p}, 31, 18.00, "iron_pickaxe", 1 of iron pickaxe, "&fPico de Hierro &7(x1)")
+    setShopItem({_p}, 32, 18.00, "iron_axe", 1 of iron axe, "&fHacha de Hierro &7(x1)")
+    setShopItem({_p}, 33, 12.00, "iron_shovel", 1 of iron shovel, "&fPala de Hierro &7(x1)")
+    setShopItem({_p}, 34, 15.00, "white_bed", 1 of white bed, "&fCama de Viajero &7(x1)")
+    set slot 49 of {_p}'s current inventory to barrier named "&c&lVOLVER AL MENÚ PRINCIPAL"
+
+function renderCat2GUI(p: player):
+    setShopItem({_p}, 10, 45.00, "name_tag", 1 of name tag, "&fEtiqueta de Nombre &7(x1)")
+    setShopItem({_p}, 11, 60.00, "saddle", 1 of saddle, "&fMontura de Caballo &7(x1)")
+    setShopItem({_p}, 12, 85.00, "sponge", 1 of sponge, "&fEsponja Absorbente &7(x1)")
+    setShopItem({_p}, 13, 75.00, "experience_bottle", 16 of experience bottle, "&fFrasco de Experiencia &7(x16)")
+    setShopItem({_p}, 14, 25.00, "ender_pearl", 4 of ender pearl, "&fPerla de Ender &7(x4)")
+    setShopItem({_p}, 15, 12.00, "chest", 8 of chest, "&fCofre de Almacén &7(x8)")
+    setShopItem({_p}, 16, 55.00, "anvil", 1 of anvil, "&fYunque de Hierro &7(x1)")
+    
+    setShopItem({_p}, 19, 110.00, "shulker_shell", 1 of shulker shell, "&fCaparazón de Shulker &7(x1)")
+    setShopItem({_p}, 20, 15.00, "lead", 2 of lead, "&fRienda &7(x2)")
+    setShopItem({_p}, 21, 20.00, "lantern", 8 of lantern, "&fFarol &7(x8)")
+    setShopItem({_p}, 22, 16.00, "redstone", 32 of redstone, "&fPolvo de Redstone &7(x32)")
+    setShopItem({_p}, 23, 18.00, "repeater", 4 of repeater, "&fRepetidor de Redstone &7(x4)")
+    setShopItem({_p}, 24, 22.00, "comparator", 4 of comparator, "&fComparador &7(x4)")
+    setShopItem({_p}, 25, 24.00, "piston", 4 of piston, "&fPistón Normal &7(x4)")
+    
+    setShopItem({_p}, 28, 35.00, "sticky_piston", 4 of sticky piston, "&fPistón Pegajoso &7(x4)")
+    setShopItem({_p}, 29, 30.00, "observer", 4 of observer, "&fObservador &7(x4)")
+    setShopItem({_p}, 30, 40.00, "hopper", 2 of hopper, "&fTolva de Hierro &7(x2)")
+    setShopItem({_p}, 31, 20.00, "dispenser", 2 of dispenser, "&fDispensador &7(x2)")
+    setShopItem({_p}, 32, 14.00, "dropper", 4 of dropper, "&fSoltador &7(x4)")
+    setShopItem({_p}, 33, 15.00, "rail", 32 of rail, "&fRaíl Normal &7(x32)")
+    setShopItem({_p}, 34, 45.00, "powered_rail", 16 of powered rail, "&fRaíl Propulsado &7(x16)")
+
+    # --- Mesas de Encanto, Librerías y Hornos ---
+    setShopItem({_p}, 37, 120.00, "enchanting_table", 1 of enchanting table, "&d&lMesa de Encantamientos &7(x1)")
+    setShopItem({_p}, 38, 40.00, "bookshelf", 8 of bookshelf, "&fLibrería &7(x8)")
+    setShopItem({_p}, 39, 16.00, "furnace", 4 of furnace, "&fHorno Normal &7(x4)")
+    setShopItem({_p}, 40, 35.00, "blast_furnace", 2 of blast furnace, "&fAlto Horno &7(x2)")
+    setShopItem({_p}, 41, 35.00, "smoker", 2 of smoker, "&fAhumador &7(x2)")
+    set slot 49 of {_p}'s current inventory to barrier named "&c&lVOLVER AL MENÚ PRINCIPAL"
+
+function renderCat3GUI(p: player):
+    set {_b1} to enchanted book
+    add efficiency 1 to enchantments of {_b1}
+    setShopItem({_p}, 10, 30.00, "book_eff1", {_b1}, "&dLibro: Eficiencia I")
+    
+    set {_b2} to enchanted book
+    add efficiency 2 to enchantments of {_b2}
+    setShopItem({_p}, 11, 55.00, "book_eff2", {_b2}, "&dLibro: Eficiencia II")
+    
+    set {_b3} to enchanted book
+    add efficiency 3 to enchantments of {_b3}
+    setShopItem({_p}, 12, 85.00, "book_eff3", {_b3}, "&dLibro: Eficiencia III")
+    
+    set {_b4} to enchanted book
+    add unbreaking 1 to enchantments of {_b4}
+    setShopItem({_p}, 13, 35.00, "book_unb1", {_b4}, "&dLibro: Irrompibilidad I")
+    
+    set {_b5} to enchanted book
+    add unbreaking 2 to enchantments of {_b5}
+    setShopItem({_p}, 14, 65.00, "book_unb2", {_b5}, "&dLibro: Irrompibilidad II")
+    
+    set {_b6} to enchanted book
+    add unbreaking 3 to enchantments of {_b6}
+    setShopItem({_p}, 15, 110.00, "book_unb3", {_b6}, "&dLibro: Irrompibilidad III")
+    
+    set {_b7} to enchanted book
+    add silk touch 1 to enchantments of {_b7}
+    setShopItem({_p}, 16, 130.00, "book_silk", {_b7}, "&dLibro: Toque de Seda I")
+    
+    set {_b8} to enchanted book
+    add fortune 1 to enchantments of {_b8}
+    setShopItem({_p}, 19, 75.00, "book_fort1", {_b8}, "&dLibro: Fortuna I")
+    
+    set {_b9} to enchanted book
+    add fortune 2 to enchantments of {_b9}
+    setShopItem({_p}, 20, 140.00, "book_fort2", {_b9}, "&dLibro: Fortuna II")
+    
+    set {_b10} to enchanted book
+    add protection 1 to enchantments of {_b10}
+    setShopItem({_p}, 21, 40.00, "book_prot1", {_b10}, "&dLibro: Protección I")
+    
+    set {_b11} to enchanted book
+    add protection 2 to enchantments of {_b11}
+    setShopItem({_p}, 22, 75.00, "book_prot2", {_b11}, "&dLibro: Protección II")
+    
+    set {_b12} to enchanted book
+    add protection 3 to enchantments of {_b12}
+    setShopItem({_p}, 23, 125.00, "book_prot3", {_b12}, "&dLibro: Protección III")
+    
+    set {_b13} to enchanted book
+    add sharpness 1 to enchantments of {_b13}
+    setShopItem({_p}, 24, 35.00, "book_sharp1", {_b13}, "&dLibro: Filo I")
+    
+    set {_b14} to enchanted book
+    add sharpness 2 to enchantments of {_b14}
+    setShopItem({_p}, 25, 70.00, "book_sharp2", {_b14}, "&dLibro: Filo II")
+    
+    set {_b15} to enchanted book
+    add sharpness 3 to enchantments of {_b15}
+    setShopItem({_p}, 28, 120.00, "book_sharp3", {_b15}, "&dLibro: Filo III")
+    
+    set {_b16} to enchanted book
+    add feather falling 2 to enchantments of {_b16}
+    setShopItem({_p}, 29, 50.00, "book_ff2", {_b16}, "&dLibro: Caída de Pluma II")
+    
+    set {_b17} to enchanted book
+    add feather falling 4 to enchantments of {_b17}
+    setShopItem({_p}, 30, 110.00, "book_ff4", {_b17}, "&dLibro: Caída de Pluma IV")
+    
+    set {_b18} to enchanted book
+    add looting 1 to enchantments of {_b18}
+    setShopItem({_p}, 31, 80.00, "book_loot1", {_b18}, "&dLibro: Saqueo I")
+    
+    set {_b19} to enchanted book
+    add looting 2 to enchantments of {_b19}
+    setShopItem({_p}, 32, 150.00, "book_loot2", {_b19}, "&dLibro: Saqueo II")
+    
+    set {_b20} to enchanted book
+    add efficiency 4 to enchantments of {_b20}
+    setShopItem({_p}, 33, 160.00, "book_eff4", {_b20}, "&dLibro: Eficiencia IV")
+    
+    set {_b21} to enchanted book
+    add mending 1 to enchantments of {_b21}
+    setShopItem({_p}, 34, 450.00, "book_mending", {_b21}, "&d&lLibro: Reparación I &d(Mending)")
+    set slot 49 of {_p}'s current inventory to barrier named "&c&lVOLVER AL MENÚ PRINCIPAL"
+
+# ------------------------------------------------------------------------------
+# CATEGORÍA 4: NETHER Y ALQUIMIA
+# ------------------------------------------------------------------------------
+function renderCat4GUI(p: player):
+    # --- Bloques del Nether ---
+    setShopItem({_p}, 10, 8.00, "netherrack", 64 of netherrack, "&fNetherrack &7(x64)")
+    setShopItem({_p}, 11, 25.00, "quartz_block", 32 of quartz block, "&fBloque de Cuarzo &7(x32)")
+    setShopItem({_p}, 12, 18.00, "quartz", 32 of quartz, "&fCuarzo del Nether &7(x32)")
+    setShopItem({_p}, 13, 20.00, "soul_sand", 32 of soul sand, "&fArena de Almas &7(x32)")
+    setShopItem({_p}, 14, 15.00, "nether_bricks", 32 of nether bricks, "&fLadrillos del Nether &7(x32)")
+    setShopItem({_p}, 15, 12.00, "basalt", 32 of basalt, "&fBasalto &7(x32)")
+    setShopItem({_p}, 16, 14.00, "glowstone", 16 of glowstone, "&fPiedra Luminosa &7(x16)")
+
+    # --- Herrería Netherite, Oro y Crafteo para el FARO ---
+    setShopItem({_p}, 19, 45.00, "gold_ingot", 16 of gold ingot, "&6&lLingotes de Oro &7(x16)")
+    setShopItem({_p}, 20, 1200.00, "ancient_debris", 1 of ancient debris, "&4&lEscombro Ancestral &7(x1)")
+    setShopItem({_p}, 21, 2500.00, "netherite_upgrade", 1 of netherite upgrade smithing template, "&4&lPlantilla de Mejora Netherite &7(x1)")
+    setShopItem({_p}, 22, 30.00, "obsidian", 16 of obsidian, "&fObsidiana &7(x16) &8(Ingrediente de Faro)")
+    setShopItem({_p}, 23, 1500.00, "nether_star", 1 of nether star, "&e&lEstrella del Nether &7(x1) &8(Ingrediente de Faro)")
+    setShopItem({_p}, 24, 45.00, "wither_skeleton_skull", 1 of wither skeleton skull, "&fCalavera de Wither Skeleton &7(x1)")
+    setShopItem({_p}, 25, 50.00, "brewing_stand", 1 of brewing stand, "&e&lSoporte para Pociones &7(x1)")
+
+    # --- Alquimia y Lágrima de Ghast (Ingrediente del CRISTAL DEL END) ---
+    setShopItem({_p}, 28, 25.00, "nether_wart", 16 of nether wart, "&fVerruga del Nether &7(x16)")
+    setShopItem({_p}, 29, 30.00, "blaze_powder", 8 of blaze powder, "&fPolvo de Blaze &7(x8)")
+    setShopItem({_p}, 30, 35.00, "ghast_tear", 2 of ghast tear, "&fLágrima de Ghast &7(x2) &8(Ingrediente de Cristal End)")
+    setShopItem({_p}, 31, 30.00, "magma_cream", 8 of magma cream, "&fCrema de Magma &7(x8)")
+    setShopItem({_p}, 32, 40.00, "phantom_membrane", 2 of phantom membrane, "&fMembrana de Fantasma &7(x2)")
+    setShopItem({_p}, 33, 20.00, "fermented_spider_eye", 4 of fermented spider eye, "&fOjo de Araña Fermentado &7(x4)")
+    setShopItem({_p}, 34, 15.00, "glistering_melon_slice", 8 of glistering melon slice, "&fSandía Reluciente &7(x8)")
+
+    # --- Varas de Blaze, Frascos y Zanahorias ---
+    setShopItem({_p}, 37, 20.00, "golden_carrot", 8 of golden carrot, "&fZanahoria Dorada &7(x8)")
+    setShopItem({_p}, 38, 15.00, "blaze_rod", 4 of blaze rod, "&fVara de Blaze &7(x4)")
+    setShopItem({_p}, 39, 10.00, "glass_bottle", 16 of glass bottle, "&fFrascos de Cristal &7(x16)")
+    set slot 49 of {_p}'s current inventory to barrier named "&c&lVOLVER AL MENÚ PRINCIPAL"
+
+# ------------------------------------------------------------------------------
+# CATEGORÍA 5: DIMENSIÓN END
+# ------------------------------------------------------------------------------
+function renderCat5GUI(p: player):
+    # --- Bloques e Ingrediente del Cristal del End ---
+    setShopItem({_p}, 10, 40.00, "end_stone", 64 of end stone, "&fPiedra del End &7(x64)")
+    setShopItem({_p}, 11, 55.00, "end_stone_bricks", 32 of end stone bricks, "&fLadrillos de Piedra del End &7(x32)")
+    setShopItem({_p}, 12, 65.00, "purpur_block", 32 of purpur block, "&fBloque de Purpur &7(x32)")
+    setShopItem({_p}, 13, 85.00, "end_rod", 8 of end rod, "&fVara del End &7(x8)")
+    setShopItem({_p}, 14, 90.00, "ender_eye", 4 of ender eye, "&fOjo de Ender &7(x4) &8(Ingrediente Cristal End)")
+
+    # --- Equipamiento e Ítems Raros de Élite ---
+    setShopItem({_p}, 19, 280.00, "shulker_shell_end", 2 of shulker shell, "&fCaparazones de Shulker &7(x2)")
+    setShopItem({_p}, 20, 750.00, "elytra", 1 of elytra, "&5&lElytras de Ender Dragón &7(x1)")
+    setShopItem({_p}, 21, 200.00, "ender_chest", 1 of ender chest, "&fCofre del End &7(x1)")
+    setShopItem({_p}, 22, 140.00, "dragon_breath", 4 of dragon breath, "&fAliento de Dragón &7(x4)")
+    setShopItem({_p}, 23, 900.00, "dragon_head", 1 of dragon head, "&5&lCabeza de Dragón &7(x1)")
+    set slot 49 of {_p}'s current inventory to barrier named "&c&lVOLVER AL MENÚ PRINCIPAL"
+
+# ==============================================================================
+# 6. EVENTO PRINCIPAL DE CLICS
+# ==============================================================================
+on inventory click:
+    set {_name} to name of event-inventory
+    if {_name} is "{@title_main}" or "{@title_cat1}" or "{@title_cat2}" or "{@title_cat3}" or "{@title_cat4}" or "{@title_cat5}" or "{@title_confirm}" or "{@title_profile}":
+        cancel event
+        if clicked slot is empty:
+            stop
+            
+        set {_slot} to index of event-slot
+        
+        # --- MENÚ PRINCIPAL ---
+        if {_name} is "{@title_main}":
+            if {_slot} is 19:
+                play sound "{@sound_click}" with volume 0.7 and pitch 1.1 to player
+                open chest inventory with 6 rows named "{@title_cat1}" to player
+                fillShopBorders(player, 6)
+                renderCat1GUI(player)
+            else if {_slot} is 20:
+                play sound "{@sound_click}" with volume 0.7 and pitch 1.1 to player
+                open chest inventory with 6 rows named "{@title_cat2}" to player
+                fillShopBorders(player, 6)
+                renderCat2GUI(player)
+            else if {_slot} is 21:
+                play sound "{@sound_click}" with volume 0.7 and pitch 1.1 to player
+                open chest inventory with 6 rows named "{@title_cat3}" to player
+                fillShopBorders(player, 6)
+                renderCat3GUI(player)
+            else if {_slot} is 22:
+                play sound "{@sound_click}" with volume 0.7 and pitch 1.1 to player
+                open chest inventory with 6 rows named "{@title_cat4}" to player
+                fillShopBorders(player, 6)
+                renderCat4GUI(player)
+            else if {_slot} is 23:
+                play sound "{@sound_click}" with volume 0.7 and pitch 1.1 to player
+                open chest inventory with 6 rows named "{@title_cat5}" to player
+                fillShopBorders(player, 6)
+                renderCat5GUI(player)
+            else if {_slot} is 25:
+                play sound "{@sound_click}" with volume 0.7 and pitch 1.2 to player
+                execute player command "pshop"
+            else if {_slot} is 40:
+                play sound "{@sound_click}" with volume 0.7 and pitch 1.2 to player
+                execute player command "perfil"
+
+        # --- BOTONES DE ATRÁS EN CATEGORÍAS ---
+        else if {_name} is "{@title_cat1}" or "{@title_cat2}" or "{@title_cat3}" or "{@title_cat4}" or "{@title_cat5}":
+            if {_slot} is 49:
+                play sound "{@sound_click}" with volume 0.7 and pitch 0.9 to player
+                open chest inventory with 5 rows named "{@title_main}" to player
+                fillShopBorders(player, 5)
+                renderMainGUI(player)
+                stop
+
+        # --- CLICS EN CATEGORÍA 1 ---
+        if {_name} is "{@title_cat1}":
+            if {_slot} is 10:
+                abrirMenuConfirmacionMercado(player, 6.00, 8 of bread, "Pan Reforzado (x8)", "bread", "{@title_cat1}")
+            else if {_slot} is 11:
+                abrirMenuConfirmacionMercado(player, 10.00, 8 of cooked beef, "Filete Cocido (x8)", "cooked_beef", "{@title_cat1}")
+            else if {_slot} is 12:
+                abrirMenuConfirmacionMercado(player, 10.00, 8 of cooked porkchop, "Chuleta Cocida (x8)", "cooked_porkchop", "{@title_cat1}")
+            else if {_slot} is 13:
+                abrirMenuConfirmacionMercado(player, 35.00, 1 of golden apple, "Manzana de Oro (x1)", "golden_apple", "{@title_cat1}")
+            else if {_slot} is 14:
+                abrirMenuConfirmacionMercado(player, 8.00, 16 of carrot, "Zanahoria Fresca (x16)", "carrot", "{@title_cat1}")
+            else if {_slot} is 15:
+                abrirMenuConfirmacionMercado(player, 9.00, 16 of baked potato, "Papa Cocinada (x16)", "baked_potato", "{@title_cat1}")
+            else if {_slot} is 16:
+                abrirMenuConfirmacionMercado(player, 12.00, 4 of pumpkin pie, "Pastel de Calabaza (x4)", "pumpkin_pie", "{@title_cat1}")
+            else if {_slot} is 19:
+                abrirMenuConfirmacionMercado(player, 8.00, 16 of oak log, "Tronco de Roble (x16)", "oak_log", "{@title_cat1}")
+            else if {_slot} is 20:
+                abrirMenuConfirmacionMercado(player, 8.00, 16 of spruce log, "Tronco de Abeto (x16)", "spruce_log", "{@title_cat1}")
+            else if {_slot} is 21:
+                abrirMenuConfirmacionMercado(player, 8.00, 16 of birch log, "Tronco de Abedul (x16)", "birch_log", "{@title_cat1}")
+            else if {_slot} is 22:
+                abrirMenuConfirmacionMercado(player, 10.00, 16 of jungle log, "Tronco de Jungla (x16)", "jungle_log", "{@title_cat1}")
+            else if {_slot} is 23:
+                abrirMenuConfirmacionMercado(player, 8.00, 16 of acacia log, "Tronco de Acacia (x16)", "acacia_log", "{@title_cat1}")
+            else if {_slot} is 24:
+                abrirMenuConfirmacionMercado(player, 9.00, 16 of dark oak log, "Tronco de Roble Oscuro (x16)", "dark_oak_log", "{@title_cat1}")
+            else if {_slot} is 25:
+                abrirMenuConfirmacionMercado(player, 11.00, 16 of cherry log, "Tronco de Cerezo (x16)", "cherry_log", "{@title_cat1}")
+            else if {_slot} is 28:
+                abrirMenuConfirmacionMercado(player, 6.00, 64 of cobblestone, "Adoquín (x64)", "cobblestone", "{@title_cat1}")
+            else if {_slot} is 29:
+                abrirMenuConfirmacionMercado(player, 10.00, 64 of stone, "Piedra Lisa (x64)", "stone", "{@title_cat1}")
+            else if {_slot} is 30:
+                abrirMenuConfirmacionMercado(player, 8.00, 32 of torch, "Antorcha (x32)", "torch", "{@title_cat1}")
+            else if {_slot} is 31:
+                abrirMenuConfirmacionMercado(player, 18.00, 1 of iron pickaxe, "Pico de Hierro (x1)", "iron_pickaxe", "{@title_cat1}")
+            else if {_slot} is 32:
+                abrirMenuConfirmacionMercado(player, 18.00, 1 of iron axe, "Hacha de Hierro (x1)", "iron_axe", "{@title_cat1}")
+            else if {_slot} is 33:
+                abrirMenuConfirmacionMercado(player, 12.00, 1 of iron shovel, "Pala de Hierro (x1)", "iron_shovel", "{@title_cat1}")
+            else if {_slot} is 34:
+                abrirMenuConfirmacionMercado(player, 15.00, 1 of white bed, "Cama de Viajero (x1)", "white_bed", "{@title_cat1}")
+
+        # --- CLICS EN CATEGORÍA 2 ---
+        else if {_name} is "{@title_cat2}":
+            if {_slot} is 10:
+                abrirMenuConfirmacionMercado(player, 45.00, 1 of name tag, "Etiqueta de Nombre (x1)", "name_tag", "{@title_cat2}")
+            else if {_slot} is 11:
+                abrirMenuConfirmacionMercado(player, 60.00, 1 of saddle, "Montura de Caballo (x1)", "saddle", "{@title_cat2}")
+            else if {_slot} is 12:
+                abrirMenuConfirmacionMercado(player, 85.00, 1 of sponge, "Esponja Absorbente (x1)", "sponge", "{@title_cat2}")
+            else if {_slot} is 13:
+                abrirMenuConfirmacionMercado(player, 75.00, 16 of experience bottle, "Frasco de Experiencia (x16)", "exp_bottle", "{@title_cat2}")
+            else if {_slot} is 14:
+                abrirMenuConfirmacionMercado(player, 25.00, 4 of ender pearl, "Perla de Ender (x4)", "ender_pearl", "{@title_cat2}")
+            else if {_slot} is 15:
+                abrirMenuConfirmacionMercado(player, 12.00, 8 of chest, "Cofre de Almacén (x8)", "chest", "{@title_cat2}")
+            else if {_slot} is 16:
+                abrirMenuConfirmacionMercado(player, 55.00, 1 of anvil, "Yunque de Hierro (x1)", "anvil", "{@title_cat2}")
+            else if {_slot} is 19:
+                abrirMenuConfirmacionMercado(player, 110.00, 1 of shulker shell, "Caparazón de Shulker (x1)", "shulker_shell", "{@title_cat2}")
+            else if {_slot} is 20:
+                abrirMenuConfirmacionMercado(player, 15.00, 2 of lead, "Rienda (x2)", "lead", "{@title_cat2}")
+            else if {_slot} is 21:
+                abrirMenuConfirmacionMercado(player, 20.00, 8 of lantern, "Farol (x8)", "lantern", "{@title_cat2}")
+            else if {_slot} is 22:
+                abrirMenuConfirmacionMercado(player, 16.00, 32 of redstone, "Polvo de Redstone (x32)", "redstone", "{@title_cat2}")
+            else if {_slot} is 23:
+                abrirMenuConfirmacionMercado(player, 18.00, 4 of repeater, "Repetidor de Redstone (x4)", "repeater", "{@title_cat2}")
+            else if {_slot} is 24:
+                abrirMenuConfirmacionMercado(player, 22.00, 4 of comparator, "Comparador (x4)", "comparator", "{@title_cat2}")
+            else if {_slot} is 25:
+                abrirMenuConfirmacionMercado(player, 24.00, 4 of piston, "Pistón Normal (x4)", "piston", "{@title_cat2}")
+            else if {_slot} is 28:
+                abrirMenuConfirmacionMercado(player, 35.00, 4 of sticky piston, "Pistón Pegajoso (x4)", "sticky_piston", "{@title_cat2}")
+            else if {_slot} is 29:
+                abrirMenuConfirmacionMercado(player, 30.00, 4 of observer, "Observador (x4)", "observer", "{@title_cat2}")
+            else if {_slot} is 30:
+                abrirMenuConfirmacionMercado(player, 40.00, 2 of hopper, "Tolva de Hierro (x2)", "hopper", "{@title_cat2}")
+            else if {_slot} is 31:
+                abrirMenuConfirmacionMercado(player, 20.00, 2 of dispenser, "Dispensador (x2)", "dispenser", "{@title_cat2}")
+            else if {_slot} is 32:
+                abrirMenuConfirmacionMercado(player, 14.00, 4 of dropper, "Soltador (x4)", "dropper", "{@title_cat2}")
+            else if {_slot} is 33:
+                abrirMenuConfirmacionMercado(player, 15.00, 32 of rail, "Raíl Normal (x32)", "rail", "{@title_cat2}")
+            else if {_slot} is 34:
+                abrirMenuConfirmacionMercado(player, 45.00, 16 of powered rail, "Raíl Propulsado (x16)", "powered_rail", "{@title_cat2}")
+            else if {_slot} is 37:
+                abrirMenuConfirmacionMercado(player, 120.00, 1 of enchanting table, "Mesa de Encantamientos (x1)", "enchanting_table", "{@title_cat2}")
+            else if {_slot} is 38:
+                abrirMenuConfirmacionMercado(player, 40.00, 8 of bookshelf, "Librería (x8)", "bookshelf", "{@title_cat2}")
+            else if {_slot} is 39:
+                abrirMenuConfirmacionMercado(player, 16.00, 4 of furnace, "Horno Normal (x4)", "furnace", "{@title_cat2}")
+            else if {_slot} is 40:
+                abrirMenuConfirmacionMercado(player, 35.00, 2 of blast furnace, "Alto Horno (x2)", "blast_furnace", "{@title_cat2}")
+            else if {_slot} is 41:
+                abrirMenuConfirmacionMercado(player, 35.00, 2 of smoker, "Ahumador (x2)", "smoker", "{@title_cat2}")
+
+        # --- CLICS EN CATEGORÍA 3 ---
+        else if {_name} is "{@title_cat3}":
+            if {_slot} is 10:
+                set {_b} to enchanted book
+                add efficiency 1 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 30.00, {_b}, "Libro: Eficiencia I", "book_eff1", "{@title_cat3}")
+            else if {_slot} is 11:
+                set {_b} to enchanted book
+                add efficiency 2 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 55.00, {_b}, "Libro: Eficiencia II", "book_eff2", "{@title_cat3}")
+            else if {_slot} is 12:
+                set {_b} to enchanted book
+                add efficiency 3 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 85.00, {_b}, "Libro: Eficiencia III", "book_eff3", "{@title_cat3}")
+            else if {_slot} is 13:
+                set {_b} to enchanted book
+                add unbreaking 1 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 35.00, {_b}, "Libro: Irrompibilidad I", "book_unb1", "{@title_cat3}")
+            else if {_slot} is 14:
+                set {_b} to enchanted book
+                add unbreaking 2 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 65.00, {_b}, "Libro: Irrompibilidad II", "book_unb2", "{@title_cat3}")
+            else if {_slot} is 15:
+                set {_b} to enchanted book
+                add unbreaking 3 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 110.00, {_b}, "Libro: Irrompibilidad III", "book_unb3", "{@title_cat3}")
+            else if {_slot} is 16:
+                set {_b} to enchanted book
+                add silk touch 1 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 130.00, {_b}, "Libro: Toque de Seda I", "book_silk", "{@title_cat3}")
+            else if {_slot} is 19:
+                set {_b} to enchanted book
+                add fortune 1 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 75.00, {_b}, "Libro: Fortuna I", "book_fort1", "{@title_cat3}")
+            else if {_slot} is 20:
+                set {_b} to enchanted book
+                add fortune 2 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 140.00, {_b}, "Libro: Fortuna II", "book_fort2", "{@title_cat3}")
+            else if {_slot} is 21:
+                set {_b} to enchanted book
+                add protection 1 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 40.00, {_b}, "Libro: Protección I", "book_prot1", "{@title_cat3}")
+            else if {_slot} is 22:
+                set {_b} to enchanted book
+                add protection 2 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 75.00, {_b}, "Libro: Protección II", "book_prot2", "{@title_cat3}")
+            else if {_slot} is 23:
+                set {_b} to enchanted book
+                add protection 3 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 125.00, {_b}, "Libro: Protección III", "book_prot3", "{@title_cat3}")
+            else if {_slot} is 24:
+                set {_b} to enchanted book
+                add sharpness 1 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 35.00, {_b}, "Libro: Filo I", "book_sharp1", "{@title_cat3}")
+            else if {_slot} is 25:
+                set {_b} to enchanted book
+                add sharpness 2 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 70.00, {_b}, "Libro: Filo II", "book_sharp2", "{@title_cat3}")
+            else if {_slot} is 28:
+                set {_b} to enchanted book
+                add sharpness 3 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 120.00, {_b}, "Libro: Filo III", "book_sharp3", "{@title_cat3}")
+            else if {_slot} is 29:
+                set {_b} to enchanted book
+                add feather falling 2 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 50.00, {_b}, "Libro: Caída de Pluma II", "book_ff2", "{@title_cat3}")
+            else if {_slot} is 30:
+                set {_b} to enchanted book
+                add feather falling 4 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 110.00, {_b}, "Libro: Caída de Pluma IV", "book_ff4", "{@title_cat3}")
+            else if {_slot} is 31:
+                set {_b} to enchanted book
+                add looting 1 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 80.00, {_b}, "Libro: Saqueo I", "book_loot1", "{@title_cat3}")
+            else if {_slot} is 32:
+                set {_b} to enchanted book
+                add looting 2 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 150.00, {_b}, "Libro: Saqueo II", "book_loot2", "{@title_cat3}")
+            else if {_slot} is 33:
+                set {_b} to enchanted book
+                add efficiency 4 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 160.00, {_b}, "Libro: Eficiencia IV", "book_eff4", "{@title_cat3}")
+            else if {_slot} is 34:
+                set {_b} to enchanted book
+                add mending 1 to enchantments of {_b}
+                abrirMenuConfirmacionMercado(player, 450.00, {_b}, "Libro: Reparación I (Mending)", "book_mending", "{@title_cat3}")
+
+        # --- CLICS EN CATEGORÍA 4 (NETHER & ALQUIMIA) ---
+        else if {_name} is "{@title_cat4}":
+            if {_slot} is 10:
+                abrirMenuConfirmacionMercado(player, 8.00, 64 of netherrack, "Netherrack (x64)", "netherrack", "{@title_cat4}")
+            else if {_slot} is 11:
+                abrirMenuConfirmacionMercado(player, 25.00, 32 of quartz block, "Bloque de Cuarzo (x32)", "quartz_block", "{@title_cat4}")
+            else if {_slot} is 12:
+                abrirMenuConfirmacionMercado(player, 18.00, 32 of quartz, "Cuarzo del Nether (x32)", "quartz", "{@title_cat4}")
+            else if {_slot} is 13:
+                abrirMenuConfirmacionMercado(player, 20.00, 32 of soul sand, "Arena de Almas (x32)", "soul_sand", "{@title_cat4}")
+            else if {_slot} is 14:
+                abrirMenuConfirmacionMercado(player, 15.00, 32 of nether bricks, "Ladrillos del Nether (x32)", "nether_bricks", "{@title_cat4}")
+            else if {_slot} is 15:
+                abrirMenuConfirmacionMercado(player, 12.00, 32 of basalt, "Basalto (x32)", "basalt", "{@title_cat4}")
+            else if {_slot} is 16:
+                abrirMenuConfirmacionMercado(player, 14.00, 16 of glowstone, "Piedra Luminosa (x16)", "glowstone", "{@title_cat4}")
+            else if {_slot} is 19:
+                abrirMenuConfirmacionMercado(player, 45.00, 16 of gold ingot, "Lingotes de Oro (x16)", "gold_ingot", "{@title_cat4}")
+            else if {_slot} is 20:
+                abrirMenuConfirmacionMercado(player, 1200.00, 1 of ancient debris, "Escombro Ancestral (x1)", "ancient_debris", "{@title_cat4}")
+            else if {_slot} is 21:
+                abrirMenuConfirmacionMercado(player, 2500.00, 1 of netherite upgrade smithing template, "Plantilla de Mejora Netherite (x1)", "netherite_upgrade", "{@title_cat4}")
+            else if {_slot} is 22:
+                abrirMenuConfirmacionMercado(player, 30.00, 16 of obsidian, "Obsidiana (x16)", "obsidian", "{@title_cat4}")
+            else if {_slot} is 23:
+                abrirMenuConfirmacionMercado(player, 1500.00, 1 of nether star, "Estrella del Nether (x1)", "nether_star", "{@title_cat4}")
+            else if {_slot} is 24:
+                abrirMenuConfirmacionMercado(player, 45.00, 1 of wither skeleton skull, "Calavera de Wither Skeleton (x1)", "wither_skeleton_skull", "{@title_cat4}")
+            else if {_slot} is 25:
+                abrirMenuConfirmacionMercado(player, 50.00, 1 of brewing stand, "Soporte para Pociones (x1)", "brewing_stand", "{@title_cat4}")
+            else if {_slot} is 28:
+                abrirMenuConfirmacionMercado(player, 25.00, 16 of nether wart, "Verruga del Nether (x16)", "nether_wart", "{@title_cat4}")
+            else if {_slot} is 29:
+                abrirMenuConfirmacionMercado(player, 30.00, 8 of blaze powder, "Polvo de Blaze (x8)", "blaze_powder", "{@title_cat4}")
+            else if {_slot} is 30:
+                abrirMenuConfirmacionMercado(player, 35.00, 2 of ghast tear, "Lágrima de Ghast (x2)", "ghast_tear", "{@title_cat4}")
+            else if {_slot} is 31:
+                abrirMenuConfirmacionMercado(player, 30.00, 8 of magma cream, "Crema de Magma (x8)", "magma_cream", "{@title_cat4}")
+            else if {_slot} is 32:
+                abrirMenuConfirmacionMercado(player, 40.00, 2 of phantom membrane, "Membrana de Fantasma (x2)", "phantom_membrane", "{@title_cat4}")
+            else if {_slot} is 33:
+                abrirMenuConfirmacionMercado(player, 20.00, 4 of fermented spider eye, "Ojo de Araña Fermentado (x4)", "fermented_spider_eye", "{@title_cat4}")
+            else if {_slot} is 34:
+                abrirMenuConfirmacionMercado(player, 15.00, 8 of glistering melon slice, "Sandía Reluciente (x8)", "glistering_melon_slice", "{@title_cat4}")
+            else if {_slot} is 37:
+                abrirMenuConfirmacionMercado(player, 20.00, 8 of golden carrot, "Zanahoria Dorada (x8)", "golden_carrot", "{@title_cat4}")
+            else if {_slot} is 38:
+                abrirMenuConfirmacionMercado(player, 15.00, 4 of blaze rod, "Vara de Blaze (x4)", "blaze_rod", "{@title_cat4}")
+            else if {_slot} is 39:
+                abrirMenuConfirmacionMercado(player, 10.00, 16 of glass bottle, "Frascos de Cristal (x16)", "glass_bottle", "{@title_cat4}")
+
+        # --- CLICS EN CATEGORÍA 5 (EL END) ---
+        else if {_name} is "{@title_cat5}":
+            if {_slot} is 10:
+                abrirMenuConfirmacionMercado(player, 40.00, 64 of end stone, "Piedra del End (x64)", "end_stone", "{@title_cat5}")
+            else if {_slot} is 11:
+                abrirMenuConfirmacionMercado(player, 55.00, 32 of end stone bricks, "Ladrillos de Piedra del End (x32)", "end_stone_bricks", "{@title_cat5}")
+            else if {_slot} is 12:
+                abrirMenuConfirmacionMercado(player, 65.00, 32 of purpur block, "Bloque de Purpur (x32)", "purpur_block", "{@title_cat5}")
+            else if {_slot} is 13:
+                abrirMenuConfirmacionMercado(player, 85.00, 8 of end rod, "Vara del End (x8)", "end_rod", "{@title_cat5}")
+            else if {_slot} is 14:
+                abrirMenuConfirmacionMercado(player, 90.00, 4 of ender eye, "Ojo de Ender (x4)", "ender_eye", "{@title_cat5}")
+            else if {_slot} is 19:
+                abrirMenuConfirmacionMercado(player, 280.00, 2 of shulker shell, "Caparazones de Shulker (x2)", "shulker_shell_end", "{@title_cat5}")
+            else if {_slot} is 20:
+                abrirMenuConfirmacionMercado(player, 750.00, 1 of elytra, "Elytras de Ender Dragón (x1)", "elytra", "{@title_cat5}")
+            else if {_slot} is 21:
+                abrirMenuConfirmacionMercado(player, 200.00, 1 of ender chest, "Cofre del End (x1)", "ender_chest", "{@title_cat5}")
+            else if {_slot} is 22:
+                abrirMenuConfirmacionMercado(player, 140.00, 4 of dragon breath, "Aliento de Dragón (x4)", "dragon_breath", "{@title_cat5}")
+            else if {_slot} is 23:
+                abrirMenuConfirmacionMercado(player, 900.00, 1 of dragon head, "Cabeza de Dragón (x1)", "dragon_head", "{@title_cat5}")
+
+        # --- MENÚ DE CONFIRMACIÓN ---
+        else if {_name} is "{@title_confirm}":
+            set {_uuid} to uuid of player
+            set {_parent} to {-mshop::%{_uuid}%::parent}
+            set {_q1} to {-mshop::%{_uuid}%::q1}
+            set {_q2} to {-mshop::%{_uuid}%::q2}
+            set {_q3} to {-mshop::%{_uuid}%::q3}
+            
+            if {_slot} is 10:
+                procesarCompraMercado(player, {_q1})
+            else if {_slot} is 11:
+                procesarCompraMercado(player, {_q2})
+            else if {_slot} is 12:
+                procesarCompraMercado(player, {_q3})
+            else if {_slot} is 14:
+                procesarVentaMercado(player, {_q1})
+            else if {_slot} is 15:
+                procesarVentaMercado(player, {_q2})
+            else if {_slot} is 16:
+                procesarVentaMercado(player, {_q3})
+            else if {_slot} is 22:
+                play sound "{@sound_click}" with volume 0.7 and pitch 0.9 to player
+                if {_parent} is "{@title_cat1}":
+                    open chest inventory with 6 rows named "{@title_cat1}" to player
+                    fillShopBorders(player, 6)
+                    renderCat1GUI(player)
+                else if {_parent} is "{@title_cat2}":
+                    open chest inventory with 6 rows named "{@title_cat2}" to player
+                    fillShopBorders(player, 6)
+                    renderCat2GUI(player)
+                else if {_parent} is "{@title_cat3}":
+                    open chest inventory with 6 rows named "{@title_cat3}" to player
+                    fillShopBorders(player, 6)
+                    renderCat3GUI(player)
+                else if {_parent} is "{@title_cat4}":
+                    open chest inventory with 6 rows named "{@title_cat4}" to player
+                    fillShopBorders(player, 6)
+                    renderCat4GUI(player)
+                else if {_parent} is "{@title_cat5}":
+                    open chest inventory with 6 rows named "{@title_cat5}" to player
+                    fillShopBorders(player, 6)
+                    renderCat5GUI(player)
+                else:
+                    open chest inventory with 5 rows named "{@title_main}" to player
+                    fillShopBorders(player, 5)
+                    renderMainGUI(player)
+
+on inventory close:
+    if name of event-inventory is "{@title_confirm}":
+        delete {-mshop::%uuid of player%::*}
+
+# ==============================================================================
+# 7. COMANDOS PRINCIPALES
+# ==============================================================================
+command /shop [<text>]:
+    aliases: /tienda, /mercado, /comprar
+    trigger:
+        if arg-1 is "reload":
+            if sender has permission "survival.shop.admin":
+                execute console command "sk reload %script's name%"
+                send "{@prefix}&a¡El mercado ha sido recargado correctamente!" to sender
+                stop
+            else:
+                send "&cNo tienes permisos de administrador." to sender
+                stop
+                
+        if sender is console:
+            send "{@prefix}&cEste menú solo es para jugadores." to sender
+            stop
+            
+        play sound "{@sound_open}" with volume 0.7 and pitch 1.0 to player
+        open chest inventory with 5 rows named "{@title_main}" to player
+        fillShopBorders(player, 5)
+        renderMainGUI(player)
+
+command /perfil:
+    aliases: /stats, /tiendastats
+    trigger:
+        if sender is console:
+            send "{@prefix}&cEste comando solo es para jugadores." to sender
+            stop
+            
+        play sound "{@sound_open}" with volume 0.7 and pitch 1.2 to player
+        open chest inventory with 3 rows named "{@title_profile}" to player
+        fillShopBorders(player, 3)
+        
+        set {_spent_total} to {total_spent::%uuid of player%} ? 0
+        set {_spent_cycle} to {market_spent::%name of player%} ? 0
+        
+        set {_rango} to "&7Comprador Novato"
+        if {_spent_total} >= 10000:
+            set {_rango} to "&6&lCOMPRADOR ELITE 🏆"
+        else if {_spent_total} >= 2500:
+            set {_rango} to "&eComprador Frecuente ⭐"
+            
+        set {_head} to skull of player
+        set slot 11 of player's current inventory to {_head} named "&e&lTUS ESTADÍSTICAS" with lore "", "&7Jugador: &f%player's name%", "&7Rango Comercial: %{_rango}%", "", "&7• Gastado este ciclo (5h): &a$%cleanMoney({_spent_cycle})%", "&7• Total histórico gastado: &e$%cleanMoney({_spent_total})%" and "&8(Tus datos solo los ves tú)"
+        
+        set {_top1_name} to "Nadie"
+        set {_top1_amount} to 0
+        loop {market_spent::*}:
+            if loop-value > {_top1_amount}:
+                set {_top1_amount} to loop-value
+                set {_top1_name} to loop-index
+                
+        set slot 13 of player's current inventory to nether star named "&b&lESTADO DEL MERCADO" with lore "", "&7Líder del ciclo actual:", "&6&l#1 &f%{_top1_name}% &7- &a$%cleanMoney({_top1_amount})%", "", "&7• Reinicio de oferta/demanda: &eCada 5 horas" and "&7• Estado del Mercado: &a&lACTIVO"
+        
+        set slot 15 of player's current inventory to book named "&d&lRECOMPENSAS Y LOGROS" with lore "", "&7Aumenta tu total gastado para", "&7desbloquear rangos en el chat:", "", "&7[Novato] &8-> &7$0", "&e[Frecuente] &8-> &7$2,500" and "&6[ELITE] &8-> &7$10,000"

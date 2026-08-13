@@ -1,0 +1,229 @@
+# =====================================================================
+#   PRACHIM (פרחים) - REPRODUCTOR Y SINFONÍA MAESTRA (SKBEE COMPATIBLE)
+# =====================================================================
+
+options:
+    prefix: &8[&b🎼 פרחים&8]&r
+
+# ---------------------------------------------------------------------
+# COMANDO PRINCIPAL Y MENÚ INTERACTIVO
+# ---------------------------------------------------------------------
+command /reproductor [<text>]:
+    aliases: /musicas, /discplayer, /jukebox, /prachim
+    permission: simon.admin
+    permission message: &cNo tienes permiso.
+    trigger:
+        if arg-1 is "stop" or "parar":
+            if {reproductor::playing::%uuid of player%} is set:
+                delete {reproductor::playing::%uuid of player%}
+                execute console command "stopsound %player% master"
+                send "{@prefix} &cMúsica detenida." to player
+            else:
+                send "{@prefix} &cNo tienes ninguna canción sonando." to player
+            stop
+
+        # Inventario compatible
+        set {_gui} to a new chest inventory with 3 rows named "&8🎼 &lJukebox - פרחים"
+        
+        set {_slot} to 0
+        loop 20 times:
+            set {_num} to loop-number
+            set slot {_slot} of {_gui} to music disc 13 named "&a&lCanción #%{_num}%" with lore "&7Haz clic para reproducir &e(3 minutos)"
+            add 1 to {_slot}
+
+        # Canción Especial #21 (Sinfonía Combinada)
+        set slot 22 of {_gui} to music disc pigstep named "&d&l★ Sinfonía פרחים (Master Mix)" with lore "&7Mezcla estratégica evolutiva de las 20 canciones" and "&eDuración: 3 minutos"
+        
+        # Botón Detener
+        set slot 26 of {_gui} to barrier named "&c&lDetener Música" with lore "&7Cancela la reproducción actual"
+
+        open {_gui} to player
+
+# Control de clics del menú
+on inventory click:
+    if name of event-inventory is "&8🎼 &lJukebox - פרחים":
+        cancel event
+        if clicked slot is set:
+            set {_s} to index of clicked slot
+            if {_s} >= 0:
+                if {_s} < 20:
+                    set {_num} to {_s} + 1
+                    execute player command "/reproducircancion %{_num}%"
+                else if {_s} is 22:
+                    execute player command "/reproducircancion 21"
+                else if {_s} is 26:
+                    execute player command "/reproductor stop"
+
+# ---------------------------------------------------------------------
+# REPRODUCTOR MODULAR DE CANCIONES
+# ---------------------------------------------------------------------
+command /reproducircancion <integer>:
+    permission: simon.admin
+    trigger:
+        set {_id} to arg-1
+        if {_id} < 1:
+            stop
+        if {_id} > 21:
+            stop
+
+        if {reproductor::playing::%uuid of player%} is set:
+            delete {reproductor::playing::%uuid of player%}
+            wait 2 ticks
+
+        set {reproductor::playing::%uuid of player%} to true
+        execute console command "stopsound %player% master"
+        
+        if {_id} is 21:
+            send "{@prefix} &dReproduciendo: &l★ Sinfonía פרחים (Master Mix) &7(3 minutos)" to player
+        else:
+            send "{@prefix} &aReproduciendo: &eCanción #%{_id}% &7(Duración: 3 minutos)" to player
+
+        set {_segundos} to 0
+        set {_cycle} to 0
+
+        while {reproductor::playing::%uuid of player%} is set:
+            if {_segundos} >= 180:
+                delete {reproductor::playing::%uuid of player%}
+                send "{@prefix} &7La reproducción ha finalizado." to player
+                stop
+
+            # ---------------------------------------------------------
+            # CANCIÓN 21: MEZCLA ESTRATÉGICA EVOLUTIVA (SINFONÍA פרחים)
+            # ---------------------------------------------------------
+            if {_id} is 21:
+                set {_fase} to floor({_segundos} / 9) + 1
+                
+                # Base rítmica continua
+                play sound "block.note_block.bass" with volume 0.5 and pitch 0.6 to player
+                
+                # Ciclo de tonos seguro (0, 1, 2)
+                add 1 to {_cycle}
+                if {_cycle} > 2:
+                    set {_cycle} to 0
+                set {_pitch_harp} to 0.8 + ({_cycle} * 0.2)
+
+                # Alternancia de timbres según la fase del tema
+                if {_fase} is 1 or 6 or 12:
+                    play sound "block.note_block.harp" with volume 0.7 and pitch {_pitch_harp} to player
+                if {_fase} is 2 or 9 or 15:
+                    play sound "block.note_block.chime" with volume 0.6 and pitch 1.4 to player
+                    play sound "block.amethyst_block.chime" with volume 0.4 and pitch 1.0 to player
+                if {_fase} is 3 or 10 or 18:
+                    play sound "block.note_block.bit" with volume 0.6 and pitch 1.2 to player
+                if {_fase} is 4 or 7 or 16:
+                    play sound "entity.warden.heartbeat" with volume 0.7 and pitch 0.8 to player
+                    play sound "block.sculk_sensor.clicking" with volume 0.5 and pitch 0.6 to player
+                if {_fase} is 5 or 11 or 17:
+                    play sound "block.note_block.flute" with volume 0.7 and pitch 1.1 to player
+                if {_fase} is 8 or 13 or 19:
+                    play sound "block.note_block.bell" with volume 0.6 and pitch 1.3 to player
+                    play sound "block.note_block.banjo" with volume 0.5 and pitch 0.9 to player
+                if {_fase} is 14 or 20:
+                    play sound "particle.soul_escape" with volume 0.4 and pitch 0.8 to player
+                    play sound "block.note_block.pling" with volume 0.7 and pitch 1.6 to player
+
+                if chance of 20%:
+                    play sound "block.note_block.iron_xylophone" with volume 0.4 and pitch 1.5 to player
+
+            # ---------------------------------------------------------
+            # CANCIONES INDIVIDUALES (1 A 20)
+            # ---------------------------------------------------------
+            else if {_id} is 1:
+                play sound "block.note_block.harp" with volume 0.7 and pitch 0.8 to player
+                if chance of 40%:
+                    play sound "block.note_block.chime" with volume 0.5 and pitch 1.2 to player
+            
+            else if {_id} is 2:
+                play sound "block.note_block.chime" with volume 0.6 and pitch 1.5 to player
+                play sound "block.note_block.bell" with volume 0.4 and pitch 1.0 to player
+
+            else if {_id} is 3:
+                play sound "block.note_block.bit" with volume 0.5 and pitch 1.1 to player
+                if chance of 50%:
+                    play sound "block.note_block.pling" with volume 0.6 and pitch 1.4 to player
+
+            else if {_id} is 4:
+                play sound "block.sculk_sensor.clicking" with volume 0.8 and pitch 0.6 to player
+                play sound "block.note_block.bass" with volume 0.7 and pitch 0.5 to player
+
+            else if {_id} is 5:
+                play sound "block.note_block.flute" with volume 0.7 and pitch 1.2 to player
+                if chance of 30%:
+                    play sound "ambient.cave" with volume 0.3 and pitch 1.0 to player
+
+            else if {_id} is 6:
+                play sound "block.note_block.pling" with volume 0.6 and pitch 1.0 to player
+                play sound "block.note_block.harp" with volume 0.4 and pitch 1.3 to player
+
+            else if {_id} is 7:
+                play sound "entity.warden.heartbeat" with volume 0.8 and pitch 0.8 to player
+                play sound "block.note_block.didgeridoo" with volume 0.5 and pitch 0.6 to player
+
+            else if {_id} is 8:
+                play sound "block.note_block.bell" with volume 0.7 and pitch 0.8 to player
+                if chance of 35%:
+                    play sound "block.note_block.iron_xylophone" with volume 0.6 and pitch 1.1 to player
+
+            else if {_id} is 9:
+                play sound "block.amethyst_block.chime" with volume 0.8 and pitch 1.2 to player
+                play sound "block.note_block.chime" with volume 0.5 and pitch 1.6 to player
+
+            else if {_id} is 10:
+                play sound "block.note_block.skeleton" with volume 0.7 and pitch 1.0 to player
+                play sound "block.note_block.hat" with volume 0.5 and pitch 1.4 to player
+
+            else if {_id} is 11:
+                play sound "block.note_block.snare" with volume 0.4 and pitch 0.5 to player
+                play sound "block.note_block.flute" with volume 0.6 and pitch 0.9 to player
+
+            else if {_id} is 12:
+                play sound "block.note_block.harp" with volume 0.6 and pitch 0.75 to player
+                if chance of 45%:
+                    play sound "block.sculk_shrieker.shriek" with volume 0.2 and pitch 1.8 to player
+
+            else if {_id} is 13:
+                play sound "block.note_block.banjo" with volume 0.7 and pitch 1.2 to player
+                play sound "block.note_block.bass" with volume 0.5 and pitch 0.8 to player
+
+            else if {_id} is 14:
+                play sound "particle.soul_escape" with volume 0.5 and pitch 0.7 to player
+                play sound "block.note_block.guitar" with volume 0.6 and pitch 0.9 to player
+
+            else if {_id} is 15:
+                play sound "block.note_block.chime" with volume 0.7 and pitch 1.8 to player
+                play sound "block.note_block.pling" with volume 0.5 and pitch 1.5 to player
+
+            else if {_id} is 16:
+                play sound "block.note_block.zombie" with volume 0.6 and pitch 0.6 to player
+                play sound "block.note_block.bass" with volume 0.8 and pitch 0.5 to player
+
+            else if {_id} is 17:
+                play sound "block.note_block.guitar" with volume 0.7 and pitch 1.1 to player
+                play sound "block.note_block.flute" with volume 0.5 and pitch 1.3 to player
+
+            else if {_id} is 18:
+                play sound "block.sculk_sensor.clicking" with volume 0.6 and pitch 1.5 to player
+                play sound "block.note_block.bit" with volume 0.6 and pitch 0.8 to player
+
+            else if {_id} is 19:
+                play sound "block.note_block.bell" with volume 0.7 and pitch 1.4 to player
+                play sound "block.note_block.harp" with volume 0.5 and pitch 1.0 to player
+
+            else if {_id} is 20:
+                play sound "block.note_block.pling" with volume 0.6 and pitch 2.0 to player
+                play sound "block.note_block.bit" with volume 0.5 and pitch 1.7 to player
+                if chance of 25%:
+                    play sound "entity.experience_orb.pickup" with volume 0.4 and pitch 1.2 to player
+
+            # Action bar dinámica
+            if {_id} is 21:
+                send action bar "&d🎼 Sonando: &l★ Sinfonía פרחים &7| Tiempo: &e%{_segundos}%s / 180s" to player
+            else:
+                send action bar "&b🎼 Sonando: &fCanción #%{_id}% &7| Tiempo: &e%{_segundos}%s / 180s" to player
+
+            wait 10 ticks
+            add 0.5 to {_segundos}
+
+on quit:
+    if {reproductor::playing::%uuid of player%} is set:
+        delete {reproductor::playing::%uuid of player%}

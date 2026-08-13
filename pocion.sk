@@ -1,0 +1,603 @@
+# ==============================================================================
+#   🧪 NATURELAND | ALQUIMIA ELITE & ANCESTRAL (19 RECETAS HARDCORE + COOLDOWN)
+#   REQUISITOS: Trofeos de Mobs Élites + Minerales Avanzados + Pistas en Cadena
+#   COMPATIBILIDAD: PaperMC 1.21.1 + SkBee 3.25.1 (0% Lore Sucio / Sin efectos)
+# ==============================================================================
+
+options:
+    prefix: &8[&6&lALQUIMIA&8] &r
+
+# ------------------------------------------------------------------------------
+# 1. GUÍA /POCIONES
+# ------------------------------------------------------------------------------
+command /pociones:
+    aliases: /alquimia, /recetas
+    trigger:
+        if player's world is not "world":
+            send "{@prefix}&cLa alquimia solo funciona en el mundo principal (&eworld&c)." to player
+            stop
+        
+        set {_gui} to a new chest inventory with 3 rows named "&8🧪 &6&lALQUIMIA ELITE &8| &0Guía"
+        loop 27 times:
+            set slot (loop-number - 1) of {_gui} to black stained glass pane named " "
+            
+        # Pista visible: Receta #1 (Hardcore)
+        set {_pista1} to water bottle named "&6&l[Pista #1] Té de Zanahoria Mística" with lore "", "&7Infusión inicial de alta eficiencia.", "", "&e&lIngredientes requeridos:", "&f  • 1x Trofeo Elite Tier 2", "&f  • 1x Bloque de Hierro" and "&f  • 1x Amatista"
+        apply potion contents to {_pista1}:
+            custom_color: rgb(50, 150, 255)
+        add hide additional tooltip to item flags of {_pista1}
+        add hide attributes to item flags of {_pista1}
+        set slot 10 of {_gui} to {_pista1}
+        
+        # Pista de recetas secretas
+        set slot 13 of {_gui} to purple glazed terracotta named "&d&l❓ CADENA DE 19 RECETAS" with lore "", "&7¡Cada poción que crees tendrá en su Lore", "&7la pista secreta para fabricar la siguiente!", "" and "&d• Requiere Trofeos T2, T3, T4, T5 y Estrellas del Nether."
+        
+        # Instrucciones
+        set slot 16 of {_gui} to book named "&e&l📖 INSTRUCCIONES" with lore "", "&61. &fLlena el caldero con &bAgua&f.", "&62. &fPon una &eFogata encendida &fdebajo.", "&63. &fLanza los &a3 ingredientes requeridos&f." and "&64. &fHaz Clic Derecho con un &bFrasco de Cristal&f."
+
+        open {_gui} to player
+
+on inventory click:
+    if name of event-inventory contains "ALQUIMIA":
+        cancel event
+
+# ------------------------------------------------------------------------------
+# 2. SISTEMA DE DESTILACIÓN (19 RECETAS EN CADENA + COOLDOWN ANTI-LAG)
+# ------------------------------------------------------------------------------
+on right click on cauldron or water cauldron:
+    if player's world is not "world":
+        stop
+    if player's tool is not glass bottle:
+        stop
+
+    if event-block is not water cauldron:
+        send "{@prefix}&cEl caldero debe contener &bAgua &cpara alquimia." to player
+        play sound "block.water.ambient" with volume 0.8 and pitch 0.5 at event-location
+        stop
+
+    set {_bloque_abajo} to type of block below event-block
+    if "%{_bloque_abajo}%" does not contain "campfire":
+        send "{@prefix}&cEl caldero está frío... Pon una &efogata encendida &cdebajo." to player
+        play sound "block.fire.extinguish" with volume 0.5 and pitch 1.0 at event-location
+        stop
+
+    # Cooldown Anti-Spam para proteger CPU/RAM (OPs exentos)
+    if player is not op:
+        set {_waited} to difference between {nl::cooldown::alquimia::%uuid of player%} and now
+        if {_waited} is less than 4 seconds:
+            set {_rem} to difference between 4 seconds and {_waited}
+            send action bar "{@prefix}&c⏳ El caldero está reaccionando... Espera &e%{_rem}%&c." to player
+            play sound "entity.enderman.teleport" with volume 0.5 and pitch 0.5 at event-location
+            stop
+        set {nl::cooldown::alquimia::%uuid of player%} to now
+
+    cancel event
+
+    # Entidades arrojadas en el caldero
+    set {_items::*} to dropped items in radius 1.5 around event-block
+
+    # ==========================================================================
+    # RECETAS TIER 2 (Pociones 1 a 4)
+    # ==========================================================================
+    
+    # R1 -> Pista para R2 (Color: Azul Místico)
+    if nlValidarReceta({_items::*}, "Trofeo Elite Tier 2", iron block, amethyst shard) is true:
+        set {_p} to water bottle named "&6&lTé de Zanahoria Mística" with lore "&8[Receta #1]", "", "&e• Efectos:", "&f  - Prisa Minera II (3m)", "&f  - Visión Nocturna (5m)", "", "&6&l💡 PISTA RECETA #2:" and "&7""Fuego abisal: Trofeo T2, Bloque Magma y Crema Magma"""
+        apply potion contents to {_p}:
+            custom_color: rgb(50, 150, 255)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 1, "&6&lTÉ MÍSTICO", "&eInfusión Élite #1", {_items::*}, "Trofeo Elite Tier 2", iron block, amethyst shard)
+        stop
+
+    # R2 -> Pista para R3 (Color: Naranja Fuego)
+    if nlValidarReceta({_items::*}, "Trofeo Elite Tier 2", magma block, magma cream) is true:
+        set {_p} to water bottle named "&4&lElixir de Fuego Infernal" with lore "&8[Receta #2]", "", "&e• Efectos:", "&f  - Fuerza II (3m)", "&f  - Resistencia al Fuego (8m)", "", "&6&l💡 PISTA RECETA #3:" and "&7""Energía roja: Trofeo T2, Bloque Redstone y Zanahoria Oro"""
+        apply potion contents to {_p}:
+            custom_color: rgb(255, 100, 0)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 1, "&4&lFUEGO INFERNAL", "&cPoder Abisal #2", {_items::*}, "Trofeo Elite Tier 2", magma block, magma cream)
+        stop
+
+    # R3 -> Pista para R4 (Color: Celeste Veloz)
+    if nlValidarReceta({_items::*}, "Trofeo Elite Tier 2", redstone block, golden carrot) is true:
+        set {_p} to water bottle named "&c&lBrebaje del Corredor" with lore "&8[Receta #3]", "", "&e• Efectos:", "&f  - Velocidad II (5m)", "&f  - Prisa II (3m)", "", "&6&l💡 PISTA RECETA #4:" and "&7""Destello dorado: Trofeo T2, Bloque de Oro y Sandía Reluciente"""
+        apply potion contents to {_p}:
+            custom_color: rgb(100, 220, 255)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 1, "&c&lCORREDOR", "&eInfusión Élite #3", {_items::*}, "Trofeo Elite Tier 2", redstone block, golden carrot)
+        stop
+
+    # R4 -> Pista para R5 (Color: Rojo Carmesí)
+    if nlValidarReceta({_items::*}, "Trofeo Elite Tier 2", gold block, glistering melon slice) is true:
+        set {_p} to water bottle named "&e&lTónico de Curación Real" with lore "&8[Receta #4]", "", "&e• Efectos:", "&f  - Regeneración II (3m)", "&f  - Absorción II (3m)", "", "&6&l💡 PISTA RECETA #5:" and "&7""Rey Sombrío: Trofeo Real T3, Bloque de Oro y Rosa Wither"""
+        apply potion contents to {_p}:
+            custom_color: rgb(255, 50, 50)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 2, "&e&lCURACIÓN REAL", "&eInfusión Élite #4", {_items::*}, "Trofeo Elite Tier 2", gold block, glistering melon slice)
+        stop
+
+    # ==========================================================================
+    # RECETAS TIER 3 (Pociones 5 a 9)
+    # ==========================================================================
+
+    # R5 -> Pista para R6 (Color: Negro/Gris Sombrío)
+    if nlValidarReceta({_items::*}, "Trofeo Real Tier 3", gold block, wither rose) is true:
+        set {_p} to water bottle named "&0&lBrebaje de las Sombras" with lore "&8[Receta #5]", "", "&e• Efectos:", "&f  - Fuerza III (2m)", "&f  - Resistencia II (3m)", "", "&6&l💡 PISTA RECETA #6:" and "&7""Llanto blanco: Trofeo Real T3, Bloque Cuarzo y Lágrima Ghast"""
+        apply potion contents to {_p}:
+            custom_color: rgb(40, 40, 40)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 2, "&0&lSOMBRAS ANCESTRALES", "&8Poder Real #5", {_items::*}, "Trofeo Real Tier 3", gold block, wither rose)
+        stop
+
+    # R6 -> Pista para R7 (Color: Verde Lima / Salto)
+    if nlValidarReceta({_items::*}, "Trofeo Real Tier 3", quartz block, ghast tear) is true:
+        set {_p} to water bottle named "&f&lTónico Celestial" with lore "&8[Receta #6]", "", "&e• Efectos:", "&f  - Regeneración III (2m)", "&f  - Salto III (3m)", "", "&6&l💡 PISTA RECETA #7:" and "&7""Vuelo nocturno: Trofeo Real T3, Bloque Lapislázuli y Membrana"""
+        apply potion contents to {_p}:
+            custom_color: rgb(150, 255, 50)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 2, "&f&lTÓNICO CELESTIAL", "&bBendición Divina #6", {_items::*}, "Trofeo Real Tier 3", quartz block, ghast tear)
+        stop
+
+    # R7 -> Pista para R8 (Color: Blanco Cielo / Caída Lenta)
+    if nlValidarReceta({_items::*}, "Trofeo Real Tier 3", lapis block, phantom membrane) is true:
+        set {_p} to water bottle named "&9&lElixir del Cielo" with lore "&8[Receta #7]", "", "&e• Efectos:", "&f  - Caída Lenta II (6m)", "&f  - Velocidad II (5m)", "", "&6&l💡 PISTA RECETA #8:" and "&7""Veneno esmeralda: Trofeo Real T3, Bloque Esmeralda y Ojo Araña"""
+        apply potion contents to {_p}:
+            custom_color: rgb(240, 240, 255)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 2, "&9&lELIXIR DEL CIELO", "&9Vuelo Real #7", {_items::*}, "Trofeo Real Tier 3", lapis block, phantom membrane)
+        stop
+
+    # R8 -> Pista para R9 (Color: Verde Bosque / Suerte)
+    if nlValidarReceta({_items::*}, "Trofeo Real Tier 3", emerald block, spider eye) is true:
+        set {_p} to water bottle named "&2&lAntídoto del Bosque" with lore "&8[Receta #8]", "", "&e• Efectos:", "&f  - Resistencia III (3m)", "&f  - Regeneración II (3m)", "", "&6&l💡 PISTA RECETA #9:" and "&7""Corazón duro: Trofeo Real T3, Obsidiana y Manzana de Oro"""
+        apply potion contents to {_p}:
+            custom_color: rgb(30, 130, 40)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 3, "&2&lANTÍDOTO BOSQUE", "&aInmunidad #8", {_items::*}, "Trofeo Real Tier 3", emerald block, spider eye)
+        stop
+
+    # R9 -> Pista para R10 (Color: Naranja Intenso / Fuerza)
+    if nlValidarReceta({_items::*}, "Trofeo Real Tier 3", obsidian, golden apple) is true:
+        set {_p} to water bottle named "&6&lBrebaje del Titán" with lore "&8[Receta #9]", "", "&e• Efectos:", "&f  - Absorción III (4m)", "&f  - Fuerza II (4m)", "", "&6&l💡 PISTA RECETA #10:" and "&7""Vacío coral: Trofeo Abisal T4, Bloque Diamante y Fruta Coral"""
+        apply potion contents to {_p}:
+            custom_color: rgb(255, 180, 0)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 3, "&6&lTITÁN", "&6Fuerza Real #9", {_items::*}, "Trofeo Real Tier 3", obsidian, golden apple)
+        stop
+
+    # ==========================================================================
+    # RECETAS TIER 4 (Pociones 10 a 14)
+    # ==========================================================================
+
+    # R10 -> Pista para R11 (Color: Morado Oscuro / Vacío)
+    if nlValidarReceta({_items::*}, "Trofeo Abisal Tier 4", diamond block, chorus fruit) is true:
+        set {_p} to water bottle named "&5&lDestilado del Vacío" with lore "&8[Receta #10]", "", "&e• Efectos:", "&f  - Caída Lenta II (5m)", "&f  - Velocidad III (5m)", "", "&6&l💡 PISTA RECETA #11:" and "&7""Océano profundo: Trofeo Abisal T4, Corazón Mar y Bloque Lapis"""
+        apply potion contents to {_p}:
+            custom_color: rgb(100, 0, 150)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 3, "&5&lDESTILADO VACÍO", "&dEnergía Abisal #10", {_items::*}, "Trofeo Abisal Tier 4", diamond block, chorus fruit)
+        stop
+
+    # R11 -> Pista para R12 (Color: Azul Océano)
+    if nlValidarReceta({_items::*}, "Trofeo Abisal Tier 4", heart of the sea, lapis block) is true:
+        set {_p} to water bottle named "&b&lEsencia Abisal" with lore "&8[Receta #11]", "", "&e• Efectos:", "&f  - Respiración Acuática (10m)", "&f  - Gracia de Delfín (8m)", "", "&6&l💡 PISTA RECETA #12:" and "&7""Sigilo profundo: Trofeo Abisal T4, Frag. Eco y Bloque Esmeralda"""
+        apply potion contents to {_p}:
+            custom_color: rgb(0, 100, 200)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 3, "&b&lESENCIA ABISAL", "&3Dominio Oceánico #11", {_items::*}, "Trofeo Abisal Tier 4", heart of the sea, lapis block)
+        stop
+
+    # R12 -> Pista para R13 (Color: Turquesa Warden / Sigilo)
+    if nlValidarReceta({_items::*}, "Trofeo Abisal Tier 4", echo shard, emerald block) is true:
+        set {_p} to water bottle named "&3&lElixir del Eco Oscuro" with lore "&8[Receta #12]", "", "&e• Efectos:", "&f  - Visión Nocturna (10m)", "&f  - Invisibilidad (5m)", "", "&6&l💡 PISTA RECETA #13:" and "&7""Fuego ardiente: Trofeo Abisal T4, Vara Blaze y Bloque Magma"""
+        apply potion contents to {_p}:
+            custom_color: rgb(0, 180, 180)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 4, "&3&lECO OSCURO", "&1Sigilo Warden #12", {_items::*}, "Trofeo Abisal Tier 4", echo shard, emerald block)
+        stop
+
+    # R13 -> Pista para R14 (Color: Rojo Infierno)
+    if nlValidarReceta({_items::*}, "Trofeo Abisal Tier 4", blaze rod, magma block) is true:
+        set {_p} to water bottle named "&c&lFuria del Nether" with lore "&8[Receta #13]", "", "&e• Efectos:", "&f  - Fuerza III (4m)", "&f  - Resistencia Fuego (10m)", "", "&6&l💡 PISTA RECETA #14:" and "&7""Ojo oscuro: Trofeo Abisal T4, Ojo de Ender y Obsidiana"""
+        apply potion contents to {_p}:
+            custom_color: rgb(200, 0, 0)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 4, "&c&lFURIA NETHER", "&4Poder Destructor #13", {_items::*}, "Trofeo Abisal Tier 4", blaze rod, magma block)
+        stop
+
+    # R14 -> Pista para R15 (Color: Púrpura End)
+    if nlValidarReceta({_items::*}, "Trofeo Abisal Tier 4", ender eye, obsidian) is true:
+        set {_p} to water bottle named "&5&lMirada del Fin" with lore "&8[Receta #14]", "", "&e• Efectos:", "&f  - Resistencia III (4m)", "&f  - Regeneración III (3m)", "", "&6&l💡 PISTA RECETA #15:" and "&7""Cataclismo: Trofeo T5, Bloque Netherite y Manzana Notch"""
+        apply potion contents to {_p}:
+            custom_color: rgb(150, 50, 200)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 4, "&5&lMIRADA DEL FIN", "&dElixir Abisal #14", {_items::*}, "Trofeo Abisal Tier 4", ender eye, obsidian)
+        stop
+
+    # ==========================================================================
+    # RECETAS TIER 5 - SUPREMAS (Pociones 15 a 19)
+    # ==========================================================================
+
+    # R15 -> Pista para R16 (Color: Dorado Brillante / Regeneración)
+    if nlValidarReceta({_items::*}, "Trofeo Cataclismo Tier 5", netherite block, enchanted golden apple) is true:
+        set {_p} to water bottle named "&6&l✨ ELIXIR SUPREMO DE REYES ✨" with lore "&8[Receta #15]", "", "&e• Efectos:", "&f  - Absorción IV (5m)", "&f  - Regeneración III (4m)", "&f  - Fuerza III (4m)", "", "&6&l💡 PISTA RECETA #16:" and "&7""Cráneo negro: Trofeo T5, Bloque Diamante y Cráneo Wither"""
+        apply potion contents to {_p}:
+            custom_color: rgb(255, 215, 0)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 5, "&6&l✨ ELIXIR DE REYES ✨", "&ePoder Divino #15", {_items::*}, "Trofeo Cataclismo Tier 5", netherite block, enchanted golden apple)
+        stop
+
+    # R16 -> Pista para R17 (Color: Gris Oscuro / Wither)
+    if nlValidarReceta({_items::*}, "Trofeo Cataclismo Tier 5", diamond block, wither skeleton skull) is true:
+        set {_p} to water bottle named "&8&lMaldición del Wither Real" with lore "&8[Receta #16]", "", "&e• Efectos:", "&f  - Fuerza IV (3m)", "&f  - Resistencia II (5m)", "", "&6&l💡 PISTA RECETA #17:" and "&7""Inmortalidad: Trofeo T5, Bloque Esmeralda y Tótem de Inmortalidad"""
+        apply potion contents to {_p}:
+            custom_color: rgb(60, 60, 60)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 6, "&8&lWITHER REAL", "&4Poder Oscuro #16", {_items::*}, "Trofeo Cataclismo Tier 5", diamond block, wither skeleton skull)
+        stop
+
+    # R17 -> Pista para R18 (Color: Rosa Magenta / Vida Eterna)
+    if nlValidarReceta({_items::*}, "Trofeo Cataclismo Tier 5", emerald block, totem of undying) is true:
+        set {_p} to water bottle named "&a&lBrebaje de la Vida Eterna" with lore "&8[Receta #17]", "", "&e• Efectos:", "&f  - Regeneración IV (3m)", "&f  - Absorción IV (5m)", "", "&6&l💡 PISTA RECETA #18:" and "&7""Aliento Dragón: Trofeo T5, Bloque Netherite y Aliento de Dragón"""
+        apply potion contents to {_p}:
+            custom_color: rgb(255, 80, 180)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 7, "&a&lVIDA ETERNA", "&2Inmortalidad #17", {_items::*}, "Trofeo Cataclismo Tier 5", emerald block, totem of undying)
+        stop
+
+    # R18 -> Pista para R19 (Color: Magenta Dragón / Fuerza)
+    if nlValidarReceta({_items::*}, "Trofeo Cataclismo Tier 5", netherite block, dragon's breath) is true:
+        set {_p} to water bottle named "&d&lAliento del Dragón Ancestral" with lore "&8[Receta #18]", "", "&e• Efectos:", "&f  - Fuerza IV (4m)", "&f  - Velocidad III (5m)", "&f  - Resistencia III (4m)", "", "&6&l💡 PISTA RECETA #19 (FINAL):" and "&7""LA CREACIÓN ABSOLUTA: Trofeo T5, Bloque Netherite y ESTRELLA DEL NETHER"""
+        apply potion contents to {_p}:
+            custom_color: rgb(200, 0, 255)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 8, "&d&lALIENTO DRAGÓN", "&5Poder End #18", {_items::*}, "Trofeo Cataclismo Tier 5", netherite block, dragon's breath)
+        stop
+
+    # R19 (TIER 20 HARDCORE DEFINITIVO) -> Color: Rojo Carmesí Legendario
+    if nlValidarReceta({_items::*}, "Trofeo Cataclismo Tier 5", netherite block, nether star) is true:
+        set {_p} to water bottle named "&4&l⚡ DESTRUCTOR DE MUNDOS ⚡" with lore "&c&l[RECETA SUPREMA #19]", "", "&7El elixir más difícil de la historia.", "", "&e• Efectos Legendarios:", "&f  - Absorción V (5m)", "&f  - Regeneración IV (5m)", "&f  - Fuerza IV (5m)", "&f  - Resistencia III (5m)" and "&f  - Prisa III (5m)"
+        apply potion contents to {_p}:
+            custom_color: rgb(255, 30, 0)
+        add hide additional tooltip to item flags of {_p}
+        add hide attributes to item flags of {_p}
+        nlProcesarAlquimia(player, event-block, {_p}, 10, "&4&l⚡ DESTRUCTOR DE MUNDOS ⚡", "&6Alquimia Legendaria Completada", {_items::*}, "Trofeo Cataclismo Tier 5", netherite block, nether star)
+        stop
+
+    send "{@prefix}&cLos 3 objetos no forman una receta válida o falta un Trofeo Élite." to player
+    play sound "block.water.ambient" with volume 0.8 and pitch 0.5 at event-location
+
+# ------------------------------------------------------------------------------
+# 3. FUNCIONES AUXILIARES DE VALIDACIÓN Y EFECTOS VISUALES (OPTIMIZADO CPU/RAM)
+# ------------------------------------------------------------------------------
+
+function nlValidarReceta(items: entities, slot1: object, slot2: object, slot3: object) :: boolean:
+    delete {_found1}
+    delete {_found2}
+    delete {_found3}
+
+    loop {_items::*}:
+        set {_e} to loop-value
+        set {_item} to item of {_e}
+        
+        if {_found1} is not set:
+            if nlItemCoincide({_item}, {_slot1}) is true:
+                set {_found1} to {_e}
+                continue
+
+        if {_found2} is not set:
+            if nlItemCoincide({_item}, {_slot2}) is true:
+                set {_found2} to {_e}
+                continue
+
+        if {_found3} is not set:
+            if nlItemCoincide({_item}, {_slot3}) is true:
+                set {_found3} to {_e}
+                continue
+
+    if {_found1} is set:
+        if {_found2} is set:
+            if {_found3} is set:
+                return true
+    return false
+
+function nlItemCoincide(it: item, target: object) :: boolean:
+    if {_target} is a text:
+        if name of {_it} contains {_target}:
+            return true
+    else if {_target} is an item type:
+        if type of {_it} is {_target}:
+            if name of {_it} is not set:
+                return true
+            else if name of {_it} does not contain "Trofeo":
+                return true
+    return false
+
+function nlConsumir(items: entities, target: object):
+    loop {_items::*}:
+        set {_e} to loop-value
+        set {_it} to item of {_e}
+        if nlItemCoincide({_it}, {_target}) is true:
+            set {_amt} to item amount of {_it}
+            if {_amt} <= 1:
+                kill {_e}
+            else:
+                remove 1 from item amount of {_it}
+                set item of {_e} to {_it}
+            stop
+
+function nlProcesarAlquimia(p: player, caldero: block, pocion: item, rayos: number, titulo: text, subtitulo: text, items: entities, i1: object, i2: object, i3: object):
+    add hide additional tooltip to item flags of {_pocion}
+    add hide attributes to item flags of {_pocion}
+
+    nlConsumir({_items::*}, {_i1})
+    nlConsumir({_items::*}, {_i2})
+    nlConsumir({_items::*}, {_i3})
+
+    remove 1 of glass bottle from {_p}'s tool
+    set {_caldero} to cauldron
+
+    if {_p}'s inventory has space for {_pocion}:
+        give {_pocion} to {_p}
+    else:
+        drop {_pocion} at location of {_p}
+
+    # Sistema visual progresivo y optimizado (Pausado cada 2 ticks para cuidar CPU/RAM)
+    set {_cantidad} to {_rayos} * 4
+    loop 4 times:
+        make {_cantidad} of splash at location of {_caldero}
+        make ({_cantidad} / 2) of smoke at location of {_caldero}
+        if {_rayos} >= 6:
+            make 10 of soul fire flame at location of {_caldero}
+        wait 2 ticks
+
+    loop {_rayos} times:
+        strike lightning effect at location of {_caldero}
+        if {_rayos} >= 8:
+            make 12 of totem of undying at location of {_caldero}
+        wait 2 ticks
+
+    send title {_titulo} with subtitle {_subtitulo} to {_p} for 3 seconds
+    play sound "entity.player.levelup" with volume 0.8 and pitch 1.2 to {_p}
+
+# ------------------------------------------------------------------------------
+# 4. CONSUMO Y EFECTOS (19 RECETAS)
+# ------------------------------------------------------------------------------
+on consume:
+    if name of event-item is "&6&lTé de Zanahoria Mística":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply haste 2 to player for 3 minutes
+        apply night vision 1 to player for 5 minutes
+
+    else if name of event-item is "&4&lElixir de Fuego Infernal":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply strength 2 to player for 3 minutes
+        apply fire resistance 1 to player for 8 minutes
+
+    else if name of event-item is "&c&lBrebaje del Corredor":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply speed 2 to player for 5 minutes
+        apply haste 2 to player for 3 minutes
+
+    else if name of event-item is "&e&lTónico de Curación Real":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply regeneration 2 to player for 3 minutes
+        apply absorption 2 to player for 3 minutes
+
+    else if name of event-item is "&0&lBrebaje de las Sombras":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply strength 3 to player for 2 minutes
+        apply resistance 2 to player for 3 minutes
+
+    else if name of event-item is "&f&lTónico Celestial":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply regeneration 3 to player for 2 minutes
+        apply jump boost 3 to player for 3 minutes
+
+    else if name of event-item is "&9&lElixir del Cielo":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply slow falling 2 to player for 6 minutes
+        apply speed 2 to player for 5 minutes
+
+    else if name of event-item is "&2&lAntídoto del Bosque":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply resistance 3 to player for 3 minutes
+        apply regeneration 2 to player for 3 minutes
+
+    else if name of event-item is "&6&lBrebaje del Titán":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply absorption 3 to player for 4 minutes
+        apply strength 2 to player for 4 minutes
+
+    else if name of event-item is "&5&lDestilado del Vacío":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply slow falling 2 to player for 5 minutes
+        apply speed 3 to player for 5 minutes
+
+    else if name of event-item is "&b&lEsencia Abisal":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply water breathing 1 to player for 10 minutes
+        apply dolphins grace 1 to player for 8 minutes
+
+    else if name of event-item is "&3&lElixir del Eco Oscuro":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply night vision 1 to player for 10 minutes
+        apply invisibility 1 to player for 5 minutes
+
+    else if name of event-item is "&c&lFuria del Nether":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply strength 3 to player for 4 minutes
+        apply fire resistance 1 to player for 10 minutes
+
+    else if name of event-item is "&5&lMirada del Fin":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply resistance 3 to player for 4 minutes
+        apply regeneration 3 to player for 3 minutes
+
+    else if name of event-item is "&6&l✨ ELIXIR SUPREMO DE REYES ✨":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply absorption 4 to player for 5 minutes
+        apply regeneration 3 to player for 4 minutes
+        apply strength 3 to player for 4 minutes
+        play sound "item.totem.use" with volume 1.0 and pitch 1.0 to player
+
+    else if name of event-item is "&8&lMaldición del Wither Real":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply strength 4 to player for 3 minutes
+        apply resistance 2 to player for 5 minutes
+
+    else if name of event-item is "&a&lBrebaje de la Vida Eterna":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply regeneration 4 to player for 3 minutes
+        apply absorption 4 to player for 5 minutes
+        play sound "item.totem.use" with volume 1.0 and pitch 1.0 to player
+
+    else if name of event-item is "&d&lAliento del Dragón Ancestral":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply strength 4 to player for 4 minutes
+        apply speed 3 to player for 5 minutes
+        apply resistance 3 to player for 4 minutes
+
+    else if name of event-item is "&4&l⚡ DESTRUCTOR DE MUNDOS ⚡":
+        cancel event
+        if player's gamemode is not creative:
+            remove 1 of event-item from player
+            give 1 of glass bottle to player
+        apply absorption 5 to player for 5 minutes
+        apply regeneration 4 to player for 5 minutes
+        apply strength 4 to player for 5 minutes
+        apply resistance 3 to player for 5 minutes
+        apply haste 3 to player for 5 minutes
+        play sound "ui.toast.challenge_complete" with volume 1.0 and pitch 1.0 to player
+        play sound "item.totem.use" with volume 1.0 and pitch 1.0 to player
+
+# ==============================================================================
+#   🏆 MENÚ DE ADMINISTRACIÓN Y GENERADOR DE TROFEOS (GUI)
+#   COMANDOS: /guitrofeos | /dartrofeos | /trofeosadmin
+#   REQUERIMIENTO: Permisos de operador (OP)
+# ==============================================================================
+
+command /win:
+    aliases: /dartrofeos, /trofeosadmin
+    permission: op
+    permission message: &c&l[!] &cNo tienes permisos de OP para abrir este menú.
+    trigger:
+        set {_gui} to a new chest inventory with 3 rows named "&8🏆 &6&lPANEL DE TROFEOS &8| &7Admin"
+        
+        loop 27 times:
+            set slot (loop-number - 1) of {_gui} to black stained glass pane named " "
+
+        set {_t2} to golden carrot named "&6&lTrofeo Elite Tier 2"
+        set lore of {_t2} to "&7Emblema legendario obtenido al derrotar" and "&7a un monstruo &cTier 2&7 en world." and "" and "&e• Valor Base: &a$250.00" and "&e• Rareza: &6Muy Alta" and "" and "&a▶ Clic Izquierdo: &fDar 1 trofeo" and "&a▶ Clic Derecho: &fDar 64 trofeos"
+        set slot 10 of {_gui} to {_t2}
+
+        set {_t3} to golden carrot named "&e&l👑 Trofeo Real Tier 3"
+        set lore of {_t3} to "&7Emblema legendario obtenido al derrotar" and "&7a un monstruo &cTier 3&7 en world." and "" and "&e• Valor Base: &a$600.00" and "&e• Rareza: &6Muy Alta" and "" and "&a▶ Clic Izquierdo: &fDar 1 trofeo" and "&a▶ Clic Derecho: &fDar 64 trofeos"
+        set slot 12 of {_gui} to {_t3}
+
+        set {_t4} to golden carrot named "&4&l☠ Trofeo Abisal Tier 4"
+        set lore of {_t4} to "&7Emblema legendario obtenido al derrotar" and "&7a un monstruo &cTier 4&7 en world." and "" and "&e• Valor Base: &a$1500.00" and "&e• Rareza: &6Muy Alta" and "" and "&a▶ Clic Izquierdo: &fDar 1 trofeo" and "&a▶ Clic Derecho: &fDar 64 trofeos"
+        set slot 14 of {_gui} to {_t4}
+
+        set {_t5} to golden carrot named "&5&l⚡ Trofeo Cataclismo Tier 5"
+        set lore of {_t5} to "&7Emblema legendario obtenido al derrotar" and "&7a un monstruo &cTier 5&7 en world." and "" and "&e• Valor Base: &a$4000.00" and "&e• Rareza: &6Muy Alta" and "" and "&a▶ Clic Izquierdo: &fDar 1 trofeo" and "&a▶ Clic Derecho: &fDar 64 trofeos"
+        set slot 16 of {_gui} to {_t5}
+
+        open {_gui} to player
+
+on inventory click:
+    if name of event-inventory contains "PANEL DE TROFEOS":
+        cancel event
+        if clicked slot is 10, 12, 14 or 16:
+            set {_cant} to 1
+            if click type is right mouse button or right mouse button with shift:
+                set {_cant} to 64
+            
+            if clicked slot is 10:
+                set {_item} to golden carrot named "&6&lTrofeo Elite Tier 2"
+                set lore of {_item} to "&7Emblema legendario obtenido al derrotar" and "&7a un monstruo &cTier 2&7 en world." and "" and "&e• Valor Base: &a$250.00" and "&e• Rareza: &6Muy Alta" and "" and "&a▶ Véndelo en /trofeos (Clic en Mercado)"
+            else if clicked slot is 12:
+                set {_item} to golden carrot named "&e&l👑 Trofeo Real Tier 3"
+                set lore of {_item} to "&7Emblema legendario obtenido al derrotar" and "&7a un monstruo &cTier 3&7 en world." and "" and "&e• Valor Base: &a$600.00" and "&e• Rareza: &6Muy Alta" and "" and "&a▶ Véndelo en /trofeos (Clic en Mercado)"
+            else if clicked slot is 14:
+                set {_item} to golden carrot named "&4&l☠ Trofeo Abisal Tier 4"
+                set lore of {_item} to "&7Emblema legendario obtenido al derrotar" and "&7a un monstruo &cTier 4&7 en world." and "" and "&e• Valor Base: &a$1500.00" and "&e• Rareza: &6Muy Alta" and "" and "&a▶ Véndelo en /trofeos (Clic en Mercado)"
+            else if clicked slot is 16:
+                set {_item} to golden carrot named "&5&l⚡ Trofeo Cataclismo Tier 5"
+                set lore of {_item} to "&7Emblema legendario obtenido al derrotar" and "&7a un monstruo &cTier 5&7 en world." and "" and "&e• Valor Base: &a$4000.00" and "&e• Rareza: &6Muy Alta" and "" and "&a▶ Véndelo en /trofeos (Clic en Mercado)"
+            
+            give {_cant} of {_item} to player
+            play sound "entity.item.pickup" with volume 1 and pitch 1.2 to player
+            send "&a&l[!] &fObtuviste &e%{_cant}%x &f%name of {_item}%&f." to player
