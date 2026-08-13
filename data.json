@@ -1,0 +1,14 @@
+[
+  {"id": 1, "nombre": "Tienda Poderosa", "archivo": "tienda.sk", "desc": "Mercado dinámico completo", "categoria": "economía"},
+  {"id": 2, "nombre": "Bolsa", "archivo": "Bolsa.sk", "desc": "Almacenamiento portátil", "categoria": "economía"},
+  {"id": 3, "nombre": "Avisos Chunky", "archivo": "Avisos.sk", "desc": "Sistema de alertas", "categoria": "utilidad"},
+  {"id": 4, "nombre": "Spawn", "archivo": "Spawn.sk", "desc": "Gestión del spawn", "categoria": "utilidad"},
+  {"id": 5, "nombre": "RTP", "archivo": "rtp.sk", "desc": "Teleportación aleatoria", "categoria": "utilidad"},
+  {"id": 6, "nombre": "Mobs", "archivo": "mobs.sk", "desc": "Control de criaturas", "categoria": "diverso"},
+  {"id": 7, "nombre": "Calor Extremo", "archivo": "calor-extremo.sk", "desc": "Mecánica ambiental", "categoria": "diverso"},
+  {"id": 8, "nombre": "Pociones", "archivo": "pocion.sk", "desc": "Sistema de pociones", "categoria": "utilidad"},
+  {"id": 9, "nombre": "Reparador", "archivo": "reparador.sk", "desc": "Sistema de reparación", "categoria": "economía"},
+  {"id": 10, "nombre": "Mundos", "archivo": "mundos.sk", "desc": "Gestor de mundos", "categoria": "utilidad"},
+  {"id": 11, "nombre": "Limpieza", "archivo": "limpieza.sk", "desc": "Optimización automática", "categoria": "utilidad"},
+  {"id": 12, "nombre": "Ayuda", "archivo": "ayuda.sk", "desc": "Sistema de ayuda", "categoria": "utilidad"}
+]
