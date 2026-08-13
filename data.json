@@ -1,14 +1,14 @@
 [
-  {"id": 1, "nombre": "Tienda Poderosa", "archivo": "tienda.sk", "desc": "Sistema de tienda dinámico con compra/venta de ítems, TOP3 gastadores, y configuración completa de precios", "categoria": "economía"},
-  {"id": 2, "nombre": "Bolsa", "archivo": "Bolsa.sk", "desc": "Almacenamiento portátil personal. Accede a tus ítems desde cualquier lugar del servidor", "categoria": "economía"},
-  {"id": 3, "nombre": "Avisos Chunky", "archivo": "Avisos.sk", "desc": "Sistema de alertas y notificaciones en tiempo real para eventos del servidor", "categoria": "utilidad"},
-  {"id": 4, "nombre": "Spawn", "archivo": "Spawn.sk", "desc": "Gestión del punto de aparición. Configura y establece el spawn del servidor fácilmente", "categoria": "utilidad"},
-  {"id": 5, "nombre": "RTP", "archivo": "rtp.sk", "desc": "Teleportación aleatoria segura. Teletransportate a ubicaciones aleatorias del mundo", "categoria": "utilidad"},
-  {"id": 6, "nombre": "Mobs", "archivo": "mobs.sk", "desc": "Control avanzado de criaturas: spawners, eventos especiales, y mecánicas personalizadas", "categoria": "diverso"},
-  {"id": 7, "nombre": "Calor Extremo", "archivo": "calor-extremo.sk", "desc": "Mecánica ambiental: daño por calor en desiertos, biomas especiales, y clima dinámico", "categoria": "diverso"},
-  {"id": 8, "nombre": "Pociones", "archivo": "pocion.sk", "desc": "Sistema de alquimia con 19+ recetas de pociones personalizadas y efectos especiales", "categoria": "utilidad"},
-  {"id": 9, "nombre": "Reparador", "archivo": "reparador.sk", "desc": "Reparación de herramientas y armaduras con sistema de economía integrado", "categoria": "economía"},
-  {"id": 10, "nombre": "Mundos", "archivo": "mundos.sk", "desc": "Gestor de mundos del servidor. Crea, elimina y administra mundos adicionales", "categoria": "utilidad"},
-  {"id": 11, "nombre": "Limpieza", "archivo": "limpieza.sk", "desc": "Optimización automática del servidor. Limpia items y entidades antiguas programadamente", "categoria": "utilidad"},
-  {"id": 12, "nombre": "Ayuda", "archivo": "ayuda.sk", "desc": "Sistema de ayuda en servidor. Muestra comandos, reglas e información a los jugadores", "categoria": "utilidad"}
+  {"id": 1, "nombre": "Tienda Poderosa", "archivo": "tienda.sk", "desc": "Mercado dinámico con 5 categorías (Suministros, Utilidades, Encantos, Nether, End). Compra/venta de ítems, TOP 3 gastadores, reinicio cada 5 horas", "categoria": "economía"},
+  {"id": 2, "nombre": "Bolsa de Valores", "archivo": "Bolsa.sk", "desc": "Sistema Wall Street de trueque monetario con devaluación anti-inflación. Intercambia dinero, gestiona corporaciones y capitalización bursátil", "categoria": "economía"},
+  {"id": 3, "nombre": "Alertas Chunky", "archivo": "Avisos.sk", "desc": "Sistema de avisos automáticos de pre-generación de terreno. Notifica lag cuando Chunky está activo, recordatorios cada 10 minutos", "categoria": "utilidad"},
+  {"id": 4, "nombre": "Gestión Spawn", "archivo": "Spawn.sk", "desc": "Control del punto de aparición del servidor. Comandos /setspawn para guardar y /spawn para teletransportarse", "categoria": "utilidad"},
+  {"id": 5, "nombre": "RTP Híbrido", "archivo": "rtp.sk", "desc": "Teletransportación aleatoria a 3 mundos (Overworld, Mundo Antiguo, Nether). Sistema de precios dinámicos y demanda de mercado", "categoria": "utilidad"},
+  {"id": 6, "nombre": "Mobs Abisal", "archivo": "mobs.sk", "desc": "Sistema de mobs elite T0-T3 con eventos especiales. Ruptura del Nether, invasión de criaturas, BossBar de colores y trofeos de valor", "categoria": "diverso"},
+  {"id": 7, "nombre": "Calor Extremo", "archivo": "calor-extremo.sk", "desc": "Ilusión infernal en desiertos: tormenta de arena, daño ambiental, gafas especiales y regreso seguro. Mecánica climática hardcore", "categoria": "diverso"},
+  {"id": 8, "nombre": "Alquimia Elite", "archivo": "pocion.sk", "desc": "19 recetas de pociones en cadena con ingredientes hardcore. Requiere trofeos elite, minerales avanzados y calderos con fuego", "categoria": "utilidad"},
+  {"id": 9, "nombre": "Reparador Pro", "archivo": "reparador.sk", "desc": "Sistema de reparación de herramientas y armaduras integrado con economía. Protege tus ítems valiosos", "categoria": "economía"},
+  {"id": 10, "nombre": "Gestor Mundos", "archivo": "mundos.sk", "desc": "Menú informativo con detalles de mundos: Overworld (500 bloques), Mundo Antiguo (5000 bloques) y Nether. Información de límites y PvP", "categoria": "utilidad"},
+  {"id": 11, "nombre": "Limpieza Auto", "archivo": "limpieza.sk", "desc": "Purga inteligente y automática de lag: elimina items caídos, entidades obsoletas. Panel de control y limpieza programada", "categoria": "utilidad"},
+  {"id": 12, "nombre": "Menú Ayuda", "archivo": "ayuda.sk", "desc": "Menú central de navegación con acceso a todas las funciones: Mercado, Mundos, Búsquedas, Protecciones, Redes Sociales y Discord", "categoria": "utilidad"}
 ]
